@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::{fs::File, io::Read};
 
 #[derive(Clone, Debug)]
-struct CartridgeInfo {
+pub struct CartridgeInfo {
     pub title: String,
 }
 
@@ -20,6 +20,24 @@ impl CartridgeInfo {
             return Err(anyhow::anyhow!("Invalid cartridge size"));
         }
 
-        panic!("Not implemented");
+        let title = CartridgeInfo::parse_title(&data)?;
+
+        Ok(CartridgeInfo { title })
+    }
+
+    fn is_new_cartridge(data: &[u8]) -> bool {
+        data[0x14b] == 0x33
+    }
+
+    fn parse_title(data: &[u8]) -> Result<String> {
+        let title_range = if CartridgeInfo::is_new_cartridge(&data) {
+            0x134..0x13f
+        } else {
+            0x134..0x13c
+        };
+        let title_data = &data[title_range];
+        let title = String::from_utf8(title_data.to_vec())
+            .map_err(|_| anyhow::anyhow!("Invalid cartridge title"))?;
+        Ok(title.trim_end_matches('\0').to_string())
     }
 }

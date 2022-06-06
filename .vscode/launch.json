@@ -1,0 +1,36 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'rustyboy'",
+      "cargo": {
+        "args": ["build", "--bin=rustyboy", "--package=rustyboy"],
+        "filter": {
+          "name": "rustyboy",
+          "kind": "bin"
+        }
+      },
+      "args": ["test_roms/tetris.gb"],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in executable 'rustyboy'",
+      "cargo": {
+        "args": ["test", "--no-run", "--bin=rustyboy", "--package=rustyboy"],
+        "filter": {
+          "name": "rustyboy",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
