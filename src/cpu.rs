@@ -131,12 +131,12 @@ impl Cpu {
 
     fn execute(&mut self, instruction: Instruction) -> ExecutionStep {
         match instruction {
-            Instruction::NOOP => ExecutionStep::new(self.program_counter.wrapping_add(1), 1),
-            Instruction::ADD(target) => execute_add(self, target),
-            Instruction::ADD_CARRY(target) => execute_add_carry(self, target),
-            Instruction::JUMP(condition) => execute_jump(self, condition),
-            Instruction::JUMP_HL => execute_hl_jump(self),
-            Instruction::RELATIVE_JUMP(condition) => execute_relative_jump(self, condition),
+            Instruction::Noop => ExecutionStep::new(self.program_counter.wrapping_add(1), 1),
+            Instruction::Add(target) => execute_add(self, target),
+            Instruction::AddCarry(target) => execute_add_carry(self, target),
+            Instruction::Jump(condition) => execute_jump(self, condition),
+            Instruction::JumpHL => execute_hl_jump(self),
+            Instruction::RelativeJump(condition) => execute_relative_jump(self, condition),
         }
     }
 }
@@ -154,7 +154,7 @@ fn execute_add(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
         cpu.registers.a = result;
 
         let pc_steps = match target {
-            ArithmeticTarget::IMMEDIATE => 2,
+            ArithmeticTarget::Immediate => 2,
             _ => 1,
         };
 
@@ -170,7 +170,7 @@ fn execute_add(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
         ArithmeticTarget::H => add(&cpu.registers.h),
         ArithmeticTarget::L => add(&cpu.registers.l),
         ArithmeticTarget::HL => add(&cpu.ram.read(register_hl)),
-        ArithmeticTarget::IMMEDIATE => {
+        ArithmeticTarget::Immediate => {
             let immediate = cpu.ram.read(cpu.registers.program_counter + 1);
             add(&immediate)
         }
@@ -191,7 +191,7 @@ fn execute_add_carry(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
         cpu.registers.a = result;
 
         let pc_steps = match target {
-            ArithmeticTarget::IMMEDIATE => 2,
+            ArithmeticTarget::Immediate => 2,
             _ => 1,
         };
 
@@ -207,7 +207,7 @@ fn execute_add_carry(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
         ArithmeticTarget::H => add(&cpu.registers.h),
         ArithmeticTarget::L => add(&cpu.registers.l),
         ArithmeticTarget::HL => add(&cpu.ram.read(register_hl)),
-        ArithmeticTarget::IMMEDIATE => {
+        ArithmeticTarget::Immediate => {
             let immediate = cpu.ram.read(cpu.registers.program_counter + 1);
             add(&immediate)
         }
