@@ -137,6 +137,7 @@ impl Cpu {
             Instruction::Subtract(target) => execute_add(self, target, false),
             Instruction::SubtractCarry(target) => execute_add(self, target, true),
             Instruction::And(target) => execute_and(self, target),
+            Instruction::Or(target) => execute_or(self, target),
             Instruction::Jump(condition) => execute_jump(self, condition),
             Instruction::JumpHL => execute_hl_jump(self),
             Instruction::RelativeJump(condition) => execute_relative_jump(self, condition),
@@ -167,7 +168,12 @@ fn execute_add(cpu: &mut Cpu, target: ArithmeticTarget, with_carry: bool) -> Exe
             _ => 1,
         };
 
-        ExecutionStep::new(cpu.program_counter.overflowing_add(pc_steps).0, 1)
+        let cycles = match target {
+            ArithmeticTarget::Immediate => 2,
+            ArithmeticTarget::HL => 2,
+            _ => 1,
+        };
+        ExecutionStep::new(cpu.program_counter.overflowing_add(pc_steps).0, cycles)
     };
 
     match target {
@@ -209,7 +215,12 @@ fn execute_subtract(cpu: &mut Cpu, target: ArithmeticTarget, with_carry: bool) -
             _ => 1,
         };
 
-        ExecutionStep::new(cpu.program_counter.overflowing_add(pc_steps).0, 1)
+        let cycles = match target {
+            ArithmeticTarget::Immediate => 2,
+            ArithmeticTarget::HL => 2,
+            _ => 1,
+        };
+        ExecutionStep::new(cpu.program_counter.overflowing_add(pc_steps).0, cycles)
     };
 
     match target {
@@ -245,7 +256,53 @@ fn execute_and(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
             _ => 1,
         };
 
-        ExecutionStep::new(cpu.program_counter.overflowing_add(pc_steps).0, 1)
+        let cycles = match target {
+            ArithmeticTarget::Immediate => 2,
+            ArithmeticTarget::HL => 2,
+            _ => 1,
+        };
+        ExecutionStep::new(cpu.program_counter.overflowing_add(pc_steps).0, cycles)
+    };
+
+    match target {
+        ArithmeticTarget::A => and(&register_a),
+        ArithmeticTarget::B => and(&cpu.registers.b),
+        ArithmeticTarget::C => and(&cpu.registers.c),
+        ArithmeticTarget::D => and(&cpu.registers.d),
+        ArithmeticTarget::E => and(&cpu.registers.e),
+        ArithmeticTarget::H => and(&cpu.registers.h),
+        ArithmeticTarget::L => and(&cpu.registers.l),
+        ArithmeticTarget::HL => and(&cpu.ram.read(register_hl)),
+        ArithmeticTarget::Immediate => {
+            let immediate = cpu.ram.read(cpu.registers.program_counter + 1);
+            and(&immediate)
+        }
+    }
+}
+
+fn execute_or(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
+    let register_a = cpu.registers.a;
+    let register_hl = cpu.registers.get_hl();
+
+    let mut and = |value: &u8| {
+        let result = value | cpu.registers.a;
+        cpu.registers.f.zero = result == 0;
+        cpu.registers.f.subtract = false;
+        cpu.registers.f.carry = false;
+        cpu.registers.f.half_carry = false;
+        cpu.registers.a = result;
+
+        let pc_steps = match target {
+            ArithmeticTarget::Immediate => 2,
+            _ => 1,
+        };
+
+        let cycles = match target {
+            ArithmeticTarget::Immediate => 2,
+            ArithmeticTarget::HL => 2,
+            _ => 1,
+        };
+        ExecutionStep::new(cpu.program_counter.overflowing_add(pc_steps).0, cycles)
     };
 
     match target {
