@@ -132,8 +132,10 @@ impl Cpu {
     fn execute(&mut self, instruction: Instruction) -> ExecutionStep {
         match instruction {
             Instruction::Noop => ExecutionStep::new(self.program_counter.wrapping_add(1), 1),
-            Instruction::Add(target) => execute_add(self, target),
-            Instruction::AddCarry(target) => execute_add_carry(self, target),
+            Instruction::Add(target) => execute_add(self, target, false),
+            Instruction::AddCarry(target) => execute_add(self, target, true),
+            Instruction::Subtract(target) => execute_add(self, target, false),
+            Instruction::SubtractCarry(target) => execute_add(self, target, true),
             Instruction::Jump(condition) => execute_jump(self, condition),
             Instruction::JumpHL => execute_hl_jump(self),
             Instruction::RelativeJump(condition) => execute_relative_jump(self, condition),
@@ -141,12 +143,18 @@ impl Cpu {
     }
 }
 
-fn execute_add(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
+fn execute_add(cpu: &mut Cpu, target: ArithmeticTarget, with_carry: bool) -> ExecutionStep {
     let register_a = cpu.registers.a;
     let register_hl = cpu.registers.get_hl();
 
     let mut add = |value: &u8| {
-        let (result, overflow) = value.overflowing_add(cpu.registers.a);
+        let (result, overflow) = if with_carry {
+            value.overflowing_add(cpu.registers.a)
+        } else {
+            let (result, overflow1) = value.overflowing_add(cpu.registers.f.carry as u8);
+            let (result, overflow2) = result.overflowing_add(cpu.registers.f.carry as u8);
+            (result, overflow1 || overflow2)
+        };
         cpu.registers.f.zero = result == 0;
         cpu.registers.f.subtract = false;
         cpu.registers.f.carry = overflow;
@@ -177,17 +185,22 @@ fn execute_add(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
     }
 }
 
-fn execute_add_carry(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
+fn execute_subtract(cpu: &mut Cpu, target: ArithmeticTarget, with_carry: bool) -> ExecutionStep {
     let register_a = cpu.registers.a;
     let register_hl = cpu.registers.get_hl();
 
-    let mut add = |value: &u8| {
-        let (result, overflow1) = value.overflowing_add(cpu.registers.a);
-        let (result, overflow2) = result.overflowing_add(cpu.registers.f.carry as u8);
+    let mut subtract = |value: &u8| {
+        let (result, overflow) = if with_carry {
+            value.overflowing_sub(cpu.registers.a)
+        } else {
+            let (result, overflow1) = value.overflowing_sub(cpu.registers.f.carry as u8);
+            let (result, overflow2) = result.overflowing_sub(cpu.registers.f.carry as u8);
+            (result, overflow1 || overflow2)
+        };
         cpu.registers.f.zero = result == 0;
-        cpu.registers.f.subtract = false;
-        cpu.registers.f.carry = overflow1 || overflow2;
-        cpu.registers.f.half_carry = (value & 0x0F) + (cpu.registers.a & 0x0F) > 0x0F;
+        cpu.registers.f.subtract = true;
+        cpu.registers.f.carry = overflow;
+        cpu.registers.f.half_carry = (value & 0x0F) - (cpu.registers.a & 0x0F) > 0x0F;
         cpu.registers.a = result;
 
         let pc_steps = match target {
@@ -199,17 +212,17 @@ fn execute_add_carry(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
     };
 
     match target {
-        ArithmeticTarget::A => add(&register_a),
-        ArithmeticTarget::B => add(&cpu.registers.b),
-        ArithmeticTarget::C => add(&cpu.registers.c),
-        ArithmeticTarget::D => add(&cpu.registers.d),
-        ArithmeticTarget::E => add(&cpu.registers.e),
-        ArithmeticTarget::H => add(&cpu.registers.h),
-        ArithmeticTarget::L => add(&cpu.registers.l),
-        ArithmeticTarget::HL => add(&cpu.ram.read(register_hl)),
+        ArithmeticTarget::A => subtract(&register_a),
+        ArithmeticTarget::B => subtract(&cpu.registers.b),
+        ArithmeticTarget::C => subtract(&cpu.registers.c),
+        ArithmeticTarget::D => subtract(&cpu.registers.d),
+        ArithmeticTarget::E => subtract(&cpu.registers.e),
+        ArithmeticTarget::H => subtract(&cpu.registers.h),
+        ArithmeticTarget::L => subtract(&cpu.registers.l),
+        ArithmeticTarget::HL => subtract(&cpu.ram.read(register_hl)),
         ArithmeticTarget::Immediate => {
             let immediate = cpu.ram.read(cpu.registers.program_counter + 1);
-            add(&immediate)
+            subtract(&immediate)
         }
     }
 }
