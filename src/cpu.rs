@@ -138,11 +138,29 @@ impl Cpu {
             Instruction::SubtractCarry(target) => execute_add(self, target, true),
             Instruction::And(target) => execute_and(self, target),
             Instruction::Or(target) => execute_or(self, target),
+            Instruction::Xor(target) => execute_xor(self, target),
             Instruction::Jump(condition) => execute_jump(self, condition),
             Instruction::JumpHL => execute_hl_jump(self),
             Instruction::RelativeJump(condition) => execute_relative_jump(self, condition),
         }
     }
+}
+
+fn get_arictmetic_execution_step(
+    program_counter: &u16,
+    target: &ArithmeticTarget,
+) -> ExecutionStep {
+    let pc_steps = match target {
+        ArithmeticTarget::Immediate => 2,
+        _ => 1,
+    };
+
+    let cycles = match target {
+        ArithmeticTarget::Immediate => 2,
+        ArithmeticTarget::HL => 2,
+        _ => 1,
+    };
+    ExecutionStep::new(program_counter.overflowing_add(pc_steps).0, cycles)
 }
 
 fn execute_add(cpu: &mut Cpu, target: ArithmeticTarget, with_carry: bool) -> ExecutionStep {
@@ -163,17 +181,7 @@ fn execute_add(cpu: &mut Cpu, target: ArithmeticTarget, with_carry: bool) -> Exe
         cpu.registers.f.half_carry = (value & 0x0F) + (cpu.registers.a & 0x0F) > 0x0F;
         cpu.registers.a = result;
 
-        let pc_steps = match target {
-            ArithmeticTarget::Immediate => 2,
-            _ => 1,
-        };
-
-        let cycles = match target {
-            ArithmeticTarget::Immediate => 2,
-            ArithmeticTarget::HL => 2,
-            _ => 1,
-        };
-        ExecutionStep::new(cpu.program_counter.overflowing_add(pc_steps).0, cycles)
+        get_arictmetic_execution_step(&cpu.program_counter, &target)
     };
 
     match target {
@@ -210,17 +218,7 @@ fn execute_subtract(cpu: &mut Cpu, target: ArithmeticTarget, with_carry: bool) -
         cpu.registers.f.half_carry = (value & 0x0F) - (cpu.registers.a & 0x0F) > 0x0F;
         cpu.registers.a = result;
 
-        let pc_steps = match target {
-            ArithmeticTarget::Immediate => 2,
-            _ => 1,
-        };
-
-        let cycles = match target {
-            ArithmeticTarget::Immediate => 2,
-            ArithmeticTarget::HL => 2,
-            _ => 1,
-        };
-        ExecutionStep::new(cpu.program_counter.overflowing_add(pc_steps).0, cycles)
+        get_arictmetic_execution_step(&cpu.program_counter, &target)
     };
 
     match target {
@@ -251,17 +249,7 @@ fn execute_and(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
         cpu.registers.f.half_carry = true;
         cpu.registers.a = result;
 
-        let pc_steps = match target {
-            ArithmeticTarget::Immediate => 2,
-            _ => 1,
-        };
-
-        let cycles = match target {
-            ArithmeticTarget::Immediate => 2,
-            ArithmeticTarget::HL => 2,
-            _ => 1,
-        };
-        ExecutionStep::new(cpu.program_counter.overflowing_add(pc_steps).0, cycles)
+        get_arictmetic_execution_step(&cpu.program_counter, &target)
     };
 
     match target {
@@ -284,7 +272,7 @@ fn execute_or(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
     let register_a = cpu.registers.a;
     let register_hl = cpu.registers.get_hl();
 
-    let mut and = |value: &u8| {
+    let mut or = |value: &u8| {
         let result = value | cpu.registers.a;
         cpu.registers.f.zero = result == 0;
         cpu.registers.f.subtract = false;
@@ -292,31 +280,52 @@ fn execute_or(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
         cpu.registers.f.half_carry = false;
         cpu.registers.a = result;
 
-        let pc_steps = match target {
-            ArithmeticTarget::Immediate => 2,
-            _ => 1,
-        };
-
-        let cycles = match target {
-            ArithmeticTarget::Immediate => 2,
-            ArithmeticTarget::HL => 2,
-            _ => 1,
-        };
-        ExecutionStep::new(cpu.program_counter.overflowing_add(pc_steps).0, cycles)
+        get_arictmetic_execution_step(&cpu.program_counter, &target)
     };
 
     match target {
-        ArithmeticTarget::A => and(&register_a),
-        ArithmeticTarget::B => and(&cpu.registers.b),
-        ArithmeticTarget::C => and(&cpu.registers.c),
-        ArithmeticTarget::D => and(&cpu.registers.d),
-        ArithmeticTarget::E => and(&cpu.registers.e),
-        ArithmeticTarget::H => and(&cpu.registers.h),
-        ArithmeticTarget::L => and(&cpu.registers.l),
-        ArithmeticTarget::HL => and(&cpu.ram.read(register_hl)),
+        ArithmeticTarget::A => or(&register_a),
+        ArithmeticTarget::B => or(&cpu.registers.b),
+        ArithmeticTarget::C => or(&cpu.registers.c),
+        ArithmeticTarget::D => or(&cpu.registers.d),
+        ArithmeticTarget::E => or(&cpu.registers.e),
+        ArithmeticTarget::H => or(&cpu.registers.h),
+        ArithmeticTarget::L => or(&cpu.registers.l),
+        ArithmeticTarget::HL => or(&cpu.ram.read(register_hl)),
         ArithmeticTarget::Immediate => {
             let immediate = cpu.ram.read(cpu.registers.program_counter + 1);
-            and(&immediate)
+            or(&immediate)
+        }
+    }
+}
+
+fn execute_xor(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
+    let register_a = cpu.registers.a;
+    let register_hl = cpu.registers.get_hl();
+
+    let mut xor = |value: &u8| {
+        let result = value ^ cpu.registers.a;
+        cpu.registers.f.zero = result == 0;
+        cpu.registers.f.subtract = false;
+        cpu.registers.f.carry = false;
+        cpu.registers.f.half_carry = false;
+        cpu.registers.a = result;
+
+        get_arictmetic_execution_step(&cpu.program_counter, &target)
+    };
+
+    match target {
+        ArithmeticTarget::A => xor(&register_a),
+        ArithmeticTarget::B => xor(&cpu.registers.b),
+        ArithmeticTarget::C => xor(&cpu.registers.c),
+        ArithmeticTarget::D => xor(&cpu.registers.d),
+        ArithmeticTarget::E => xor(&cpu.registers.e),
+        ArithmeticTarget::H => xor(&cpu.registers.h),
+        ArithmeticTarget::L => xor(&cpu.registers.l),
+        ArithmeticTarget::HL => xor(&cpu.ram.read(register_hl)),
+        ArithmeticTarget::Immediate => {
+            let immediate = cpu.ram.read(cpu.registers.program_counter + 1);
+            xor(&immediate)
         }
     }
 }
