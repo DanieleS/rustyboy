@@ -137,8 +137,9 @@ impl Cpu {
             Instruction::Subtract(target) => execute_subtract(self, target),
             Instruction::SubtractCarry(target) => execute_subtract_with_carry(self, target),
             Instruction::And(target) => execute_and(self, target),
-            Instruction::Or(target) => execute_or(self, target),
             Instruction::Xor(target) => execute_xor(self, target),
+            Instruction::Or(target) => execute_or(self, target),
+            Instruction::Cp(target) => execute_cp(self, target),
             Instruction::Jump(condition) => execute_jump(self, condition),
             Instruction::JumpHL => execute_hl_jump(self),
             Instruction::RelativeJump(condition) => execute_relative_jump(self, condition),
@@ -204,15 +205,12 @@ fn execute_add(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
 
 fn execute_add_with_carry(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
     fn add(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep {
-        let (result, overflow) = {
-            let (result, overflow1) = value.overflowing_add(cpu.registers.f.carry as u8);
-            let (result, overflow2) = result.overflowing_add(cpu.registers.f.carry as u8);
-            (result, overflow1 || overflow2)
-        };
+        let carry = cpu.registers.f.carry as u8;
+        let result = value.wrapping_add(cpu.registers.a).wrapping_add(carry);
         cpu.registers.f.zero = result == 0;
         cpu.registers.f.subtract = false;
-        cpu.registers.f.carry = overflow;
-        cpu.registers.f.half_carry = (value & 0x0F) + (cpu.registers.a & 0x0F) > 0x0F;
+        cpu.registers.f.carry = cpu.registers.a as u16 + value as u16 + carry as u16 > 0xFF;
+        cpu.registers.f.half_carry = (cpu.registers.a & 0xf) + (value & 0xf) + carry > 0xf;
         cpu.registers.a = result;
 
         get_arictmetic_execution_step(&cpu.program_counter, &target)
@@ -238,15 +236,16 @@ fn execute_subtract(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
 
 fn execute_subtract_with_carry(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
     fn subtract(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep {
-        let (result, overflow) = {
-            let (result, overflow1) = value.overflowing_sub(cpu.registers.f.carry as u8);
-            let (result, overflow2) = result.overflowing_sub(cpu.registers.f.carry as u8);
-            (result, overflow1 || overflow2)
-        };
+        let carry = cpu.registers.f.carry as u8;
+        let result = value.wrapping_sub(cpu.registers.a).wrapping_sub(carry);
         cpu.registers.f.zero = result == 0;
         cpu.registers.f.subtract = true;
-        cpu.registers.f.carry = overflow;
-        cpu.registers.f.half_carry = (value & 0x0F) - (cpu.registers.a & 0x0F) > 0x0F;
+        cpu.registers.f.carry = (cpu.registers.a as u16) < (value as u16) + (carry as u16);
+        cpu.registers.f.half_carry = (cpu.registers.a & 0xf)
+            .wrapping_sub(value & 0xf)
+            .wrapping_sub(carry)
+            & (0xf + 1)
+            != 0;
         cpu.registers.a = result;
 
         get_arictmetic_execution_step(&cpu.program_counter, &target)
@@ -298,6 +297,20 @@ fn execute_xor(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
     }
 
     execute_arithmetic(cpu, &target, xor)
+}
+
+fn execute_cp(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
+    fn cp(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep {
+        let (result, overflow) = value.overflowing_sub(cpu.registers.a);
+        cpu.registers.f.zero = result == 0;
+        cpu.registers.f.subtract = true;
+        cpu.registers.f.carry = overflow;
+        cpu.registers.f.half_carry = (value & 0x0F) - (cpu.registers.a & 0x0F) > 0x0F;
+
+        get_arictmetic_execution_step(&cpu.program_counter, &target)
+    }
+
+    execute_arithmetic(cpu, &target, cp)
 }
 
 fn check_jump_condition(cpu: &Cpu, condition: JumpCondition) -> bool {
