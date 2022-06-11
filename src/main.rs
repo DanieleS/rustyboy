@@ -5,6 +5,7 @@ use std::env;
 mod cartridge;
 mod cpu;
 mod ram;
+mod utils;
 
 fn main() -> Result<()> {
     let rom_path: String = env::args().nth(1).expect("No ROM path provided");

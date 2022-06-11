@@ -7,6 +7,7 @@ pub enum Instruction {
     Xor(ArithmeticTarget),
     Or(ArithmeticTarget),
     Cp(ArithmeticTarget),
+    Add16(ArithmeticTarget16),
     Jump(JumpCondition),
     JumpHL,
     RelativeJump(JumpCondition),
@@ -17,6 +18,10 @@ impl Instruction {
     pub fn from_byte(byte: u8) -> Option<Instruction> {
         match byte {
             0x00 => Some(Instruction::Noop),
+            0x09 => Some(Instruction::Add16(ArithmeticTarget16::BC)),
+            0x19 => Some(Instruction::Add16(ArithmeticTarget16::DE)),
+            0x29 => Some(Instruction::Add16(ArithmeticTarget16::HL)),
+            0x39 => Some(Instruction::Add16(ArithmeticTarget16::SP)),
             0x80 => Some(Instruction::Add(ArithmeticTarget::B)),
             0x81 => Some(Instruction::Add(ArithmeticTarget::C)),
             0x82 => Some(Instruction::Add(ArithmeticTarget::D)),
@@ -115,6 +120,14 @@ pub enum ArithmeticTarget {
     L,
     HL,
     Immediate,
+}
+
+pub enum ArithmeticTarget16 {
+    AF,
+    BC,
+    DE,
+    HL,
+    SP,
 }
 
 pub enum JumpCondition {
