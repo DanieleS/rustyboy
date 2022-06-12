@@ -1,9 +1,8 @@
 mod instructions;
 
-use self::instructions::{ArithmeticTarget16, JumpCondition};
 use crate::ram::Ram;
 use crate::utils::int::test_add_carry_bit;
-use instructions::{ArithmeticTarget, Instruction};
+use instructions::{ArithmeticTarget, ArithmeticTarget16, Instruction, JumpCondition, LoadTarget};
 
 #[derive(Debug)]
 struct ExecutionStep {
@@ -134,6 +133,7 @@ impl Cpu {
             Instruction::Noop => {
                 ExecutionStep::new(self.registers.program_counter.wrapping_add(1), 1)
             }
+            Instruction::Load(destination, source) => exeute_load(self, destination, source),
             Instruction::Add(target) => execute_add(self, target),
             Instruction::AddCarry(target) => execute_add_with_carry(self, target),
             Instruction::Subtract(target) => execute_subtract(self, target),
@@ -376,5 +376,38 @@ fn execute_relative_jump(cpu: &mut Cpu, condition: JumpCondition) -> ExecutionSt
         ExecutionStep::new(address, 3)
     } else {
         ExecutionStep::new(cpu.registers.program_counter.overflowing_add(2).0, 2)
+    }
+}
+
+fn exeute_load(cpu: &mut Cpu, destination: LoadTarget, source: LoadTarget) -> ExecutionStep {
+    let value = match source {
+        LoadTarget::A => cpu.registers.a,
+        LoadTarget::B => cpu.registers.b,
+        LoadTarget::C => cpu.registers.c,
+        LoadTarget::D => cpu.registers.d,
+        LoadTarget::E => cpu.registers.e,
+        LoadTarget::H => cpu.registers.h,
+        LoadTarget::L => cpu.registers.l,
+        LoadTarget::HL => cpu.ram.read(cpu.registers.get_hl()),
+    };
+
+    match destination {
+        LoadTarget::A => cpu.registers.a = value,
+        LoadTarget::B => cpu.registers.b = value,
+        LoadTarget::C => cpu.registers.c = value,
+        LoadTarget::D => cpu.registers.d = value,
+        LoadTarget::E => cpu.registers.e = value,
+        LoadTarget::H => cpu.registers.h = value,
+        LoadTarget::L => cpu.registers.l = value,
+        LoadTarget::HL => cpu.ram.write(cpu.registers.get_hl(), value),
+    };
+
+    ExecutionStep {
+        program_counter: cpu.registers.program_counter.wrapping_add(1),
+        cycles: if source == LoadTarget::HL || destination == LoadTarget::HL {
+            2
+        } else {
+            1
+        },
     }
 }

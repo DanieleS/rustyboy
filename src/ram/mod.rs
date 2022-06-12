@@ -26,4 +26,8 @@ impl Ram {
     pub fn read_16(&self, address: u16) -> u16 {
         (self.read(address) as u16) | ((self.read(address + 1) as u16) << 8)
     }
+
+    pub fn write(&self, address: u16, value: u8) {
+        self.memory[address as usize] = value;
+    }
 }
