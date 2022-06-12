@@ -2,7 +2,10 @@ mod instructions;
 
 use crate::ram::Ram;
 use crate::utils::int::test_add_carry_bit;
-use instructions::{ArithmeticTarget, ArithmeticTarget16, Instruction, JumpCondition, LoadTarget};
+use instructions::{
+    ArithmeticTarget, ArithmeticTarget16, Instruction, JumpCondition, LoadTarget,
+    RamAddressRegistry,
+};
 
 #[derive(Debug)]
 struct ExecutionStep {
@@ -147,6 +150,10 @@ impl Cpu {
             Instruction::JumpHL => execute_hl_jump(self),
             Instruction::RelativeJump(condition) => execute_relative_jump(self, condition),
             Instruction::Add16(target) => execute_add16(self, target),
+            Instruction::ReadFromRam(address_regisry) => {
+                execute_read_from_ram(self, address_regisry)
+            }
+            Instruction::WriteToRam(address_regisry) => execute_write_to_ram(self, address_regisry),
         }
     }
 }
@@ -430,5 +437,55 @@ fn execute_load_immediate(cpu: &mut Cpu, destination: LoadTarget) -> ExecutionSt
     ExecutionStep {
         program_counter: cpu.registers.program_counter.wrapping_add(2),
         cycles: if destination == LoadTarget::HL { 3 } else { 2 },
+    }
+}
+
+fn execute_read_from_ram(cpu: &mut Cpu, target: RamAddressRegistry) -> ExecutionStep {
+    let address = match target {
+        RamAddressRegistry::BC => cpu.registers.get_bc(),
+        RamAddressRegistry::DE => cpu.registers.get_de(),
+        RamAddressRegistry::HLPlus => {
+            let hl = cpu.registers.get_hl();
+            cpu.registers.set_hl(hl.wrapping_add(1));
+            hl
+        }
+        RamAddressRegistry::HLMinus => {
+            let hl = cpu.registers.get_hl();
+            cpu.registers.set_hl(hl.wrapping_sub(1));
+            hl
+        }
+    };
+
+    let value = cpu.ram.read(address);
+    cpu.registers.a = value;
+
+    ExecutionStep {
+        program_counter: cpu.registers.program_counter.wrapping_add(1),
+        cycles: 2,
+    }
+}
+
+fn execute_write_to_ram(cpu: &mut Cpu, target: RamAddressRegistry) -> ExecutionStep {
+    let address = match target {
+        RamAddressRegistry::BC => cpu.registers.get_bc(),
+        RamAddressRegistry::DE => cpu.registers.get_de(),
+        RamAddressRegistry::HLPlus => {
+            let hl = cpu.registers.get_hl();
+            cpu.registers.set_hl(hl.wrapping_add(1));
+            hl
+        }
+        RamAddressRegistry::HLMinus => {
+            let hl = cpu.registers.get_hl();
+            cpu.registers.set_hl(hl.wrapping_sub(1));
+            hl
+        }
+    };
+
+    let value = cpu.registers.a;
+    cpu.ram.write(address, value);
+
+    ExecutionStep {
+        program_counter: cpu.registers.program_counter.wrapping_add(1),
+        cycles: 2,
     }
 }
