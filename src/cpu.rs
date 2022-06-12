@@ -7,6 +7,8 @@ use instructions::{
     RamAddressRegistry,
 };
 
+use self::instructions::LoadTarget16;
+
 #[derive(Debug)]
 struct ExecutionStep {
     program_counter: u16,
@@ -154,6 +156,10 @@ impl Cpu {
                 execute_read_from_ram(self, address_regisry)
             }
             Instruction::WriteToRam(address_regisry) => execute_write_to_ram(self, address_regisry),
+            Instruction::WriteToRamFromStackPointer => {
+                execute_write_to_ram_from_stack_pointer(self)
+            }
+            Instruction::LoadImmediate16(target) => execute_load_immediate16(self, target),
         }
     }
 }
@@ -487,5 +493,34 @@ fn execute_write_to_ram(cpu: &mut Cpu, target: RamAddressRegistry) -> ExecutionS
     ExecutionStep {
         program_counter: cpu.registers.program_counter.wrapping_add(1),
         cycles: 2,
+    }
+}
+
+fn execute_write_to_ram_from_stack_pointer(cpu: &mut Cpu) -> ExecutionStep {
+    let address = cpu
+        .ram
+        .read16(cpu.registers.program_counter.wrapping_add(1));
+
+    cpu.ram.write16(address, cpu.registers.stack_pointer);
+
+    ExecutionStep {
+        program_counter: cpu.registers.program_counter.wrapping_add(3),
+        cycles: 5,
+    }
+}
+
+fn execute_load_immediate16(cpu: &mut Cpu, target: LoadTarget16) -> ExecutionStep {
+    let value = cpu.ram.read16(cpu.registers.program_counter + 1);
+
+    match target {
+        LoadTarget16::BC => cpu.registers.set_bc(value),
+        LoadTarget16::DE => cpu.registers.set_de(value),
+        LoadTarget16::HL => cpu.registers.set_hl(value),
+        LoadTarget16::SP => cpu.registers.stack_pointer = value,
+    };
+
+    ExecutionStep {
+        program_counter: cpu.registers.program_counter.wrapping_add(3),
+        cycles: 3,
     }
 }
