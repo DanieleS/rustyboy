@@ -1,5 +1,6 @@
 pub enum Instruction {
     Load(LoadTarget, LoadTarget),
+    LoadImmediate(LoadTarget),
     Add(ArithmeticTarget),
     AddCarry(ArithmeticTarget),
     Subtract(ArithmeticTarget),
@@ -137,6 +138,14 @@ impl Instruction {
             0x74 => Some(Instruction::Load(LoadTarget::HL, LoadTarget::H)),
             0x75 => Some(Instruction::Load(LoadTarget::HL, LoadTarget::L)),
             0x77 => Some(Instruction::Load(LoadTarget::HL, LoadTarget::A)),
+            0x06 => Some(Instruction::LoadImmediate(LoadTarget::B)),
+            0x16 => Some(Instruction::LoadImmediate(LoadTarget::D)),
+            0x26 => Some(Instruction::LoadImmediate(LoadTarget::H)),
+            0x36 => Some(Instruction::LoadImmediate(LoadTarget::HL)),
+            0x0e => Some(Instruction::LoadImmediate(LoadTarget::C)),
+            0x1e => Some(Instruction::LoadImmediate(LoadTarget::E)),
+            0x2e => Some(Instruction::LoadImmediate(LoadTarget::L)),
+            0x3e => Some(Instruction::LoadImmediate(LoadTarget::A)),
             _ => None,
         }
     }

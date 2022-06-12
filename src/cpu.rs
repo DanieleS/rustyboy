@@ -134,6 +134,7 @@ impl Cpu {
                 ExecutionStep::new(self.registers.program_counter.wrapping_add(1), 1)
             }
             Instruction::Load(destination, source) => exeute_load(self, destination, source),
+            Instruction::LoadImmediate(destination) => execute_load_immediate(self, destination),
             Instruction::Add(target) => execute_add(self, target),
             Instruction::AddCarry(target) => execute_add_with_carry(self, target),
             Instruction::Subtract(target) => execute_subtract(self, target),
@@ -317,7 +318,7 @@ fn execute_cp(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
 }
 
 fn execute_add16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionStep {
-    fn add16(cpu: &mut Cpu, target: &ArithmeticTarget16, value: u16) -> ExecutionStep {
+    fn add16(cpu: &mut Cpu, value: u16) -> ExecutionStep {
         let hl = cpu.registers.get_hl();
         let result = hl.wrapping_add(value);
         cpu.registers.f.zero = result == 0;
@@ -330,11 +331,11 @@ fn execute_add16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionStep {
     }
 
     match target {
-        ArithmeticTarget16::AF => add16(cpu, &target, cpu.registers.get_af()),
-        ArithmeticTarget16::BC => add16(cpu, &target, cpu.registers.get_bc()),
-        ArithmeticTarget16::DE => add16(cpu, &target, cpu.registers.get_de()),
-        ArithmeticTarget16::HL => add16(cpu, &target, cpu.registers.get_hl()),
-        ArithmeticTarget16::SP => add16(cpu, &target, cpu.registers.stack_pointer),
+        ArithmeticTarget16::AF => add16(cpu, cpu.registers.get_af()),
+        ArithmeticTarget16::BC => add16(cpu, cpu.registers.get_bc()),
+        ArithmeticTarget16::DE => add16(cpu, cpu.registers.get_de()),
+        ArithmeticTarget16::HL => add16(cpu, cpu.registers.get_hl()),
+        ArithmeticTarget16::SP => add16(cpu, cpu.registers.stack_pointer),
     }
 }
 
@@ -352,7 +353,7 @@ fn execute_jump(cpu: &mut Cpu, condition: JumpCondition) -> ExecutionStep {
     let condition_met = check_jump_condition(cpu, condition);
 
     if condition_met {
-        let address = cpu.ram.read_16(cpu.registers.program_counter + 1);
+        let address = cpu.ram.read16(cpu.registers.program_counter + 1);
         ExecutionStep::new(address, 4)
     } else {
         ExecutionStep::new(cpu.registers.program_counter.overflowing_add(3).0, 3)
@@ -409,5 +410,25 @@ fn exeute_load(cpu: &mut Cpu, destination: LoadTarget, source: LoadTarget) -> Ex
         } else {
             1
         },
+    }
+}
+
+fn execute_load_immediate(cpu: &mut Cpu, destination: LoadTarget) -> ExecutionStep {
+    let value = cpu.ram.read(cpu.registers.program_counter + 1);
+
+    match destination {
+        LoadTarget::A => cpu.registers.a = value,
+        LoadTarget::B => cpu.registers.b = value,
+        LoadTarget::C => cpu.registers.c = value,
+        LoadTarget::D => cpu.registers.d = value,
+        LoadTarget::E => cpu.registers.e = value,
+        LoadTarget::H => cpu.registers.h = value,
+        LoadTarget::L => cpu.registers.l = value,
+        LoadTarget::HL => cpu.ram.write(cpu.registers.get_hl(), value),
+    };
+
+    ExecutionStep {
+        program_counter: cpu.registers.program_counter.wrapping_add(2),
+        cycles: if destination == LoadTarget::HL { 3 } else { 2 },
     }
 }
