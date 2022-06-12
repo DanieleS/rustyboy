@@ -160,6 +160,8 @@ impl Cpu {
                 execute_write_to_ram_from_stack_pointer(self)
             }
             Instruction::LoadImmediate16(target) => execute_load_immediate16(self, target),
+            Instruction::Increment(target) => execute_increment(self, target),
+            Instruction::Decrement(target) => execute_decrement(self, target),
         }
     }
 }
@@ -522,5 +524,75 @@ fn execute_load_immediate16(cpu: &mut Cpu, target: LoadTarget16) -> ExecutionSte
     ExecutionStep {
         program_counter: cpu.registers.program_counter.wrapping_add(3),
         cycles: 3,
+    }
+}
+
+fn execute_increment(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
+    fn increment(cpu: &mut Cpu, value: u8) -> u8 {
+        let new_value = value.wrapping_add(1);
+
+        cpu.registers.f.subtract = false;
+        cpu.registers.f.half_carry = (value & 0xF) == 0xF;
+        cpu.registers.f.zero = new_value == 0;
+
+        new_value
+    }
+
+    match target {
+        ArithmeticTarget::A => cpu.registers.a = increment(cpu, cpu.registers.a),
+        ArithmeticTarget::B => cpu.registers.b = increment(cpu, cpu.registers.b),
+        ArithmeticTarget::C => cpu.registers.c = increment(cpu, cpu.registers.c),
+        ArithmeticTarget::D => cpu.registers.d = increment(cpu, cpu.registers.d),
+        ArithmeticTarget::E => cpu.registers.e = increment(cpu, cpu.registers.e),
+        ArithmeticTarget::H => cpu.registers.h = increment(cpu, cpu.registers.h),
+        ArithmeticTarget::L => cpu.registers.l = increment(cpu, cpu.registers.l),
+        ArithmeticTarget::HL => {
+            let new_value = increment(cpu, cpu.ram.read(cpu.registers.get_hl()));
+            cpu.ram.write(cpu.registers.get_hl(), new_value)
+        }
+        ArithmeticTarget::Immediate => (),
+    };
+
+    ExecutionStep {
+        program_counter: cpu.registers.program_counter.wrapping_add(1),
+        cycles: match target {
+            ArithmeticTarget::HL => 2,
+            _ => 1,
+        },
+    }
+}
+
+fn execute_decrement(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
+    fn decrement(cpu: &mut Cpu, value: u8) -> u8 {
+        let new_value = value.wrapping_sub(1);
+
+        cpu.registers.f.subtract = true;
+        cpu.registers.f.half_carry = (value & 0xF) == 0xF;
+        cpu.registers.f.zero = new_value == 0;
+
+        new_value
+    }
+
+    match target {
+        ArithmeticTarget::A => cpu.registers.a = decrement(cpu, cpu.registers.a),
+        ArithmeticTarget::B => cpu.registers.b = decrement(cpu, cpu.registers.b),
+        ArithmeticTarget::C => cpu.registers.c = decrement(cpu, cpu.registers.c),
+        ArithmeticTarget::D => cpu.registers.d = decrement(cpu, cpu.registers.d),
+        ArithmeticTarget::E => cpu.registers.e = decrement(cpu, cpu.registers.e),
+        ArithmeticTarget::H => cpu.registers.h = decrement(cpu, cpu.registers.h),
+        ArithmeticTarget::L => cpu.registers.l = decrement(cpu, cpu.registers.l),
+        ArithmeticTarget::HL => {
+            let new_value = decrement(cpu, cpu.ram.read(cpu.registers.get_hl()));
+            cpu.ram.write(cpu.registers.get_hl(), new_value)
+        }
+        ArithmeticTarget::Immediate => (),
+    };
+
+    ExecutionStep {
+        program_counter: cpu.registers.program_counter.wrapping_add(1),
+        cycles: match target {
+            ArithmeticTarget::HL => 2,
+            _ => 1,
+        },
     }
 }
