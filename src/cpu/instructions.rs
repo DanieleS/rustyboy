@@ -16,6 +16,8 @@ pub enum Instruction {
     Add16(ArithmeticTarget16),
     Increment(ArithmeticTarget),
     Decrement(ArithmeticTarget),
+    Increment16(ArithmeticTarget16),
+    Decrement16(ArithmeticTarget16),
     Jump(JumpCondition),
     JumpHL,
     RelativeJump(JumpCondition),
@@ -181,6 +183,14 @@ impl Instruction {
             0x1d => Some(Instruction::Decrement(ArithmeticTarget::E)),
             0x2d => Some(Instruction::Decrement(ArithmeticTarget::L)),
             0x3d => Some(Instruction::Decrement(ArithmeticTarget::A)),
+            0x03 => Some(Instruction::Increment16(ArithmeticTarget16::BC)),
+            0x13 => Some(Instruction::Increment16(ArithmeticTarget16::DE)),
+            0x23 => Some(Instruction::Increment16(ArithmeticTarget16::HL)),
+            0x33 => Some(Instruction::Increment16(ArithmeticTarget16::SP)),
+            0x0b => Some(Instruction::Decrement16(ArithmeticTarget16::BC)),
+            0x1b => Some(Instruction::Decrement16(ArithmeticTarget16::DE)),
+            0x2b => Some(Instruction::Decrement16(ArithmeticTarget16::HL)),
+            0x3b => Some(Instruction::Decrement16(ArithmeticTarget16::SP)),
             _ => None,
         }
     }

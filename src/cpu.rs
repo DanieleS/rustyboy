@@ -162,6 +162,8 @@ impl Cpu {
             Instruction::LoadImmediate16(target) => execute_load_immediate16(self, target),
             Instruction::Increment(target) => execute_increment(self, target),
             Instruction::Decrement(target) => execute_decrement(self, target),
+            Instruction::Increment16(target) => execute_increment16(self, target),
+            Instruction::Decrement16(target) => execute_decrement16(self, target),
         }
     }
 }
@@ -594,5 +596,39 @@ fn execute_decrement(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
             ArithmeticTarget::HL => 2,
             _ => 1,
         },
+    }
+}
+
+fn execute_increment16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionStep {
+    match target {
+        ArithmeticTarget16::BC => cpu.registers.set_bc(cpu.registers.get_bc().wrapping_add(1)),
+        ArithmeticTarget16::DE => cpu.registers.set_de(cpu.registers.get_de().wrapping_add(1)),
+        ArithmeticTarget16::HL => cpu.registers.set_hl(cpu.registers.get_hl().wrapping_add(1)),
+        ArithmeticTarget16::SP => {
+            cpu.registers.stack_pointer = cpu.registers.stack_pointer.wrapping_add(1)
+        }
+        _ => (),
+    };
+
+    ExecutionStep {
+        program_counter: cpu.registers.program_counter.wrapping_add(1),
+        cycles: 2,
+    }
+}
+
+fn execute_decrement16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionStep {
+    match target {
+        ArithmeticTarget16::BC => cpu.registers.set_bc(cpu.registers.get_bc().wrapping_sub(1)),
+        ArithmeticTarget16::DE => cpu.registers.set_de(cpu.registers.get_de().wrapping_sub(1)),
+        ArithmeticTarget16::HL => cpu.registers.set_hl(cpu.registers.get_hl().wrapping_sub(1)),
+        ArithmeticTarget16::SP => {
+            cpu.registers.stack_pointer = cpu.registers.stack_pointer.wrapping_sub(1)
+        }
+        _ => (),
+    };
+
+    ExecutionStep {
+        program_counter: cpu.registers.program_counter.wrapping_add(1),
+        cycles: 2,
     }
 }
