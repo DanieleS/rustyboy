@@ -168,6 +168,7 @@ impl Cpu {
             Instruction::RotateLeftCarry => execute_rotate_left_carry(self),
             Instruction::RotateRight => execute_rotate_right(self),
             Instruction::RotateRightCarry => execute_rotate_right_carry(self),
+            Instruction::DecimalAdjust => execute_decimal_adjust(self),
         }
     }
 }
@@ -689,6 +690,36 @@ fn execute_rotate_right_carry(cpu: &mut Cpu) -> ExecutionStep {
     cpu.registers.f.carry = (value & 0x01) != 0;
 
     cpu.registers.a = new_value;
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
+}
+
+fn execute_decimal_adjust(cpu: &mut Cpu) -> ExecutionStep {
+    let mut carry = false;
+
+    if !cpu.registers.f.subtract {
+        if cpu.registers.f.carry || cpu.registers.a > 0x99 {
+            cpu.registers.a = cpu.registers.a.wrapping_add(0x60);
+            carry = true;
+        }
+        if cpu.registers.f.half_carry || cpu.registers.a & 0x0f > 0x09 {
+            cpu.registers.a = cpu.registers.a.wrapping_add(0x06);
+        }
+    } else if cpu.registers.f.carry {
+        carry = true;
+        cpu.registers.a = cpu.registers.a.wrapping_add(if cpu.registers.f.half_carry {
+            0x9a
+        } else {
+            0xa0
+        });
+    } else if cpu.registers.f.half_carry {
+        cpu.registers.a = cpu.registers.a.wrapping_add(0xfa);
+    }
+
+    cpu.registers.f.zero = cpu.registers.a == 0;
+    cpu.registers.f.subtract = false;
+    cpu.registers.f.half_carry = false;
+    cpu.registers.f.carry = carry;
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
 }

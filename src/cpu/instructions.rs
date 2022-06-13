@@ -22,6 +22,7 @@ pub enum Instruction {
     RotateLeftCarry,
     RotateRight,
     RotateRightCarry,
+    DecimalAdjust,
     Jump(JumpCondition),
     JumpHL,
     RelativeJump(JumpCondition),
@@ -199,6 +200,7 @@ impl Instruction {
             0x17 => Some(Instruction::RotateLeftCarry),
             0x0f => Some(Instruction::RotateRight),
             0x1f => Some(Instruction::RotateRightCarry),
+            0x27 => Some(Instruction::DecimalAdjust),
             _ => None,
         }
     }
