@@ -164,6 +164,10 @@ impl Cpu {
             Instruction::Decrement(target) => execute_decrement(self, target),
             Instruction::Increment16(target) => execute_increment16(self, target),
             Instruction::Decrement16(target) => execute_decrement16(self, target),
+            Instruction::RotateLeft => execute_rotate_left(self),
+            Instruction::RotateLeftCarry => execute_rotate_left_carry(self),
+            Instruction::RotateRight => execute_rotate_right(self),
+            Instruction::RotateRightCarry => execute_rotate_right_carry(self),
         }
     }
 }
@@ -631,4 +635,60 @@ fn execute_decrement16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionSt
         program_counter: cpu.registers.program_counter.wrapping_add(1),
         cycles: 2,
     }
+}
+
+fn execute_rotate_left(cpu: &mut Cpu) -> ExecutionStep {
+    let value = cpu.registers.a;
+    let new_value = value.rotate_left(1);
+
+    cpu.registers.f.zero = false;
+    cpu.registers.f.subtract = false;
+    cpu.registers.f.half_carry = false;
+    cpu.registers.f.carry = (value & 0x80) != 0;
+
+    cpu.registers.a = new_value;
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
+}
+
+fn execute_rotate_left_carry(cpu: &mut Cpu) -> ExecutionStep {
+    let value = cpu.registers.a;
+    let new_value = (value << 1) | (cpu.registers.f.carry as u8);
+
+    cpu.registers.f.zero = false;
+    cpu.registers.f.subtract = false;
+    cpu.registers.f.half_carry = false;
+    cpu.registers.f.carry = (value & 0x80) != 0;
+
+    cpu.registers.a = new_value;
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
+}
+
+fn execute_rotate_right(cpu: &mut Cpu) -> ExecutionStep {
+    let value = cpu.registers.a;
+    let new_value = value.rotate_right(1);
+
+    cpu.registers.f.zero = false;
+    cpu.registers.f.subtract = false;
+    cpu.registers.f.half_carry = false;
+    cpu.registers.f.carry = (value & 0x01) != 0;
+
+    cpu.registers.a = new_value;
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
+}
+
+fn execute_rotate_right_carry(cpu: &mut Cpu) -> ExecutionStep {
+    let value = cpu.registers.a;
+    let new_value = (value >> 1) | (cpu.registers.f.carry as u8);
+
+    cpu.registers.f.zero = false;
+    cpu.registers.f.subtract = false;
+    cpu.registers.f.half_carry = false;
+    cpu.registers.f.carry = (value & 0x01) != 0;
+
+    cpu.registers.a = new_value;
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
 }

@@ -18,6 +18,10 @@ pub enum Instruction {
     Decrement(ArithmeticTarget),
     Increment16(ArithmeticTarget16),
     Decrement16(ArithmeticTarget16),
+    RotateLeft,
+    RotateLeftCarry,
+    RotateRight,
+    RotateRightCarry,
     Jump(JumpCondition),
     JumpHL,
     RelativeJump(JumpCondition),
@@ -191,6 +195,10 @@ impl Instruction {
             0x1b => Some(Instruction::Decrement16(ArithmeticTarget16::DE)),
             0x2b => Some(Instruction::Decrement16(ArithmeticTarget16::HL)),
             0x3b => Some(Instruction::Decrement16(ArithmeticTarget16::SP)),
+            0x07 => Some(Instruction::RotateLeft),
+            0x17 => Some(Instruction::RotateLeftCarry),
+            0x0f => Some(Instruction::RotateRight),
+            0x1f => Some(Instruction::RotateRightCarry),
             _ => None,
         }
     }
