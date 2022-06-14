@@ -169,6 +169,9 @@ impl Cpu {
             Instruction::RotateRight => execute_rotate_right(self),
             Instruction::RotateRightCarry => execute_rotate_right_carry(self),
             Instruction::DecimalAdjust => execute_decimal_adjust(self),
+            Instruction::SetCarryFlag => execute_set_carry_flag(self),
+            Instruction::Complement => execute_complement(self),
+            Instruction::ComplementCarryFlag => execute_complement_carry_flag(self),
         }
     }
 }
@@ -425,14 +428,14 @@ fn exeute_load(cpu: &mut Cpu, destination: LoadTarget, source: LoadTarget) -> Ex
         LoadTarget::HL => cpu.ram.write(cpu.registers.get_hl(), value),
     };
 
-    ExecutionStep {
-        program_counter: cpu.registers.program_counter.wrapping_add(1),
-        cycles: if source == LoadTarget::HL || destination == LoadTarget::HL {
+    ExecutionStep::new(
+        cpu.registers.program_counter.wrapping_add(1),
+        if source == LoadTarget::HL || destination == LoadTarget::HL {
             2
         } else {
             1
         },
-    }
+    )
 }
 
 fn execute_load_immediate(cpu: &mut Cpu, destination: LoadTarget) -> ExecutionStep {
@@ -449,10 +452,13 @@ fn execute_load_immediate(cpu: &mut Cpu, destination: LoadTarget) -> ExecutionSt
         LoadTarget::HL => cpu.ram.write(cpu.registers.get_hl(), value),
     };
 
-    ExecutionStep {
-        program_counter: cpu.registers.program_counter.wrapping_add(2),
-        cycles: if destination == LoadTarget::HL { 3 } else { 2 },
-    }
+    ExecutionStep::new(
+        cpu.registers.program_counter.wrapping_add(2),
+        match destination {
+            LoadTarget::HL => 3,
+            _ => 2,
+        },
+    )
 }
 
 fn execute_read_from_ram(cpu: &mut Cpu, target: RamAddressRegistry) -> ExecutionStep {
@@ -474,10 +480,7 @@ fn execute_read_from_ram(cpu: &mut Cpu, target: RamAddressRegistry) -> Execution
     let value = cpu.ram.read(address);
     cpu.registers.a = value;
 
-    ExecutionStep {
-        program_counter: cpu.registers.program_counter.wrapping_add(1),
-        cycles: 2,
-    }
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
 }
 
 fn execute_write_to_ram(cpu: &mut Cpu, target: RamAddressRegistry) -> ExecutionStep {
@@ -499,10 +502,7 @@ fn execute_write_to_ram(cpu: &mut Cpu, target: RamAddressRegistry) -> ExecutionS
     let value = cpu.registers.a;
     cpu.ram.write(address, value);
 
-    ExecutionStep {
-        program_counter: cpu.registers.program_counter.wrapping_add(1),
-        cycles: 2,
-    }
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
 }
 
 fn execute_write_to_ram_from_stack_pointer(cpu: &mut Cpu) -> ExecutionStep {
@@ -512,10 +512,7 @@ fn execute_write_to_ram_from_stack_pointer(cpu: &mut Cpu) -> ExecutionStep {
 
     cpu.ram.write16(address, cpu.registers.stack_pointer);
 
-    ExecutionStep {
-        program_counter: cpu.registers.program_counter.wrapping_add(3),
-        cycles: 5,
-    }
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(3), 5)
 }
 
 fn execute_load_immediate16(cpu: &mut Cpu, target: LoadTarget16) -> ExecutionStep {
@@ -528,10 +525,7 @@ fn execute_load_immediate16(cpu: &mut Cpu, target: LoadTarget16) -> ExecutionSte
         LoadTarget16::SP => cpu.registers.stack_pointer = value,
     };
 
-    ExecutionStep {
-        program_counter: cpu.registers.program_counter.wrapping_add(3),
-        cycles: 3,
-    }
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(3), 3)
 }
 
 fn execute_increment(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
@@ -560,13 +554,13 @@ fn execute_increment(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
         ArithmeticTarget::Immediate => (),
     };
 
-    ExecutionStep {
-        program_counter: cpu.registers.program_counter.wrapping_add(1),
-        cycles: match target {
+    ExecutionStep::new(
+        cpu.registers.program_counter.wrapping_add(1),
+        match target {
             ArithmeticTarget::HL => 2,
             _ => 1,
         },
-    }
+    )
 }
 
 fn execute_decrement(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
@@ -595,13 +589,13 @@ fn execute_decrement(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
         ArithmeticTarget::Immediate => (),
     };
 
-    ExecutionStep {
-        program_counter: cpu.registers.program_counter.wrapping_add(1),
-        cycles: match target {
+    ExecutionStep::new(
+        cpu.registers.program_counter.wrapping_add(1),
+        match target {
             ArithmeticTarget::HL => 2,
             _ => 1,
         },
-    }
+    )
 }
 
 fn execute_increment16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionStep {
@@ -615,10 +609,7 @@ fn execute_increment16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionSt
         _ => (),
     };
 
-    ExecutionStep {
-        program_counter: cpu.registers.program_counter.wrapping_add(1),
-        cycles: 2,
-    }
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
 }
 
 fn execute_decrement16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionStep {
@@ -632,10 +623,7 @@ fn execute_decrement16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionSt
         _ => (),
     };
 
-    ExecutionStep {
-        program_counter: cpu.registers.program_counter.wrapping_add(1),
-        cycles: 2,
-    }
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
 }
 
 fn execute_rotate_left(cpu: &mut Cpu) -> ExecutionStep {
@@ -720,6 +708,31 @@ fn execute_decimal_adjust(cpu: &mut Cpu) -> ExecutionStep {
     cpu.registers.f.subtract = false;
     cpu.registers.f.half_carry = false;
     cpu.registers.f.carry = carry;
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
+}
+
+fn execute_set_carry_flag(cpu: &mut Cpu) -> ExecutionStep {
+    cpu.registers.f.carry = true;
+    cpu.registers.f.subtract = false;
+    cpu.registers.f.half_carry = false;
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
+}
+
+fn execute_complement(cpu: &mut Cpu) -> ExecutionStep {
+    cpu.registers.a = !cpu.registers.a;
+
+    cpu.registers.f.subtract = true;
+    cpu.registers.f.half_carry = true;
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
+}
+
+fn execute_complement_carry_flag(cpu: &mut Cpu) -> ExecutionStep {
+    cpu.registers.f.carry = !cpu.registers.f.carry;
+    cpu.registers.f.subtract = false;
+    cpu.registers.f.half_carry = false;
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
 }

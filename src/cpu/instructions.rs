@@ -23,6 +23,9 @@ pub enum Instruction {
     RotateRight,
     RotateRightCarry,
     DecimalAdjust,
+    SetCarryFlag,
+    Complement,
+    ComplementCarryFlag,
     Jump(JumpCondition),
     JumpHL,
     RelativeJump(JumpCondition),
@@ -201,6 +204,9 @@ impl Instruction {
             0x0f => Some(Instruction::RotateRight),
             0x1f => Some(Instruction::RotateRightCarry),
             0x27 => Some(Instruction::DecimalAdjust),
+            0x37 => Some(Instruction::SetCarryFlag),
+            0x2f => Some(Instruction::Complement),
+            0x3f => Some(Instruction::ComplementCarryFlag),
             _ => None,
         }
     }
