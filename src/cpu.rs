@@ -194,10 +194,27 @@ impl Cpu {
             Instruction::Complement => execute_complement(self),
             Instruction::ComplementCarryFlag => execute_complement_carry_flag(self),
             Instruction::Stop => execute_stop(),
-            Instruction::DisableInterrupt => execute_disable_interrupt(self),
-            Instruction::EnableInterrupt => execute_enable_interrupt(self),
+            Instruction::DisableInterrupts => execute_disable_interrupts(self),
+            Instruction::EnableInterrupts => execute_enable_interrupts(self),
             Instruction::Halt => execute_halt(self),
+            Instruction::Call => execute_call(self),
+            Instruction::CallCondition(condition) => execute_call_condition(self, condition),
+            Instruction::Return => execute_return(self),
+            Instruction::ReturnCondition(condition) => execute_return_condition(self, condition),
+            Instruction::ReturnAndEnableInterrupts => execute_return_and_enable_interrupts(self),
+            Instruction::Restart(address) => execute_restart(self, address),
         }
+    }
+
+    fn push(&mut self, value: u16) {
+        self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(2);
+        self.ram.write16(self.registers.stack_pointer, value)
+    }
+
+    fn pop(&mut self) -> u16 {
+        let value = self.ram.read16(self.registers.stack_pointer);
+        self.registers.stack_pointer = self.registers.stack_pointer.wrapping_add(2);
+        value
     }
 }
 
@@ -766,13 +783,13 @@ fn execute_stop() -> ! {
     panic!("STOP!");
 }
 
-fn execute_disable_interrupt(cpu: &mut Cpu) -> ExecutionStep {
+fn execute_disable_interrupts(cpu: &mut Cpu) -> ExecutionStep {
     cpu.ime = false;
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
 }
 
-fn execute_enable_interrupt(cpu: &mut Cpu) -> ExecutionStep {
+fn execute_enable_interrupts(cpu: &mut Cpu) -> ExecutionStep {
     cpu.ime = true;
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
@@ -790,15 +807,13 @@ fn execute_push(cpu: &mut Cpu, target: PushPopTarget) -> ExecutionStep {
         PushPopTarget::AF => cpu.registers.get_af(),
     };
 
-    cpu.registers.stack_pointer = cpu.registers.stack_pointer.wrapping_sub(2);
-    cpu.ram.write16(cpu.registers.stack_pointer, value);
+    cpu.push(value);
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 4)
 }
 
 fn execute_pop(cpu: &mut Cpu, target: PushPopTarget) -> ExecutionStep {
-    let value = cpu.ram.read16(cpu.registers.stack_pointer);
-    cpu.registers.stack_pointer = cpu.registers.stack_pointer.wrapping_add(2);
+    let value = cpu.pop();
 
     match target {
         PushPopTarget::BC => cpu.registers.set_bc(value),
@@ -808,4 +823,55 @@ fn execute_pop(cpu: &mut Cpu, target: PushPopTarget) -> ExecutionStep {
     };
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 3)
+}
+
+fn execute_call(cpu: &mut Cpu) -> ExecutionStep {
+    let pc = cpu.registers.program_counter;
+    cpu.push(pc);
+
+    let address = cpu
+        .ram
+        .read16(cpu.registers.program_counter.wrapping_add(1));
+
+    ExecutionStep::new(address, 6)
+}
+
+fn execute_call_condition(cpu: &mut Cpu, condition: JumpCondition) -> ExecutionStep {
+    let condition_met = check_jump_condition(cpu, condition);
+
+    if condition_met {
+        execute_call(cpu)
+    } else {
+        ExecutionStep::new(cpu.registers.program_counter.wrapping_add(3), 3)
+    }
+}
+
+fn execute_return(cpu: &mut Cpu) -> ExecutionStep {
+    let address = cpu.pop();
+    cpu.registers.program_counter = address;
+
+    ExecutionStep::new(cpu.registers.program_counter, 4)
+}
+
+fn execute_return_condition(cpu: &mut Cpu, condition: JumpCondition) -> ExecutionStep {
+    let condition_met = check_jump_condition(cpu, condition);
+
+    if condition_met {
+        let pc = execute_return(cpu).program_counter;
+        ExecutionStep::new(pc, 4)
+    } else {
+        ExecutionStep::new(cpu.registers.program_counter.wrapping_add(3), 2)
+    }
+}
+
+fn execute_return_and_enable_interrupts(cpu: &mut Cpu) -> ExecutionStep {
+    execute_enable_interrupts(cpu);
+    execute_return(cpu)
+}
+
+fn execute_restart(cpu: &mut Cpu, address: u8) -> ExecutionStep {
+    let pc = cpu.registers.program_counter;
+    cpu.push(pc);
+
+    ExecutionStep::new(address as u16, 4)
 }
