@@ -29,6 +29,8 @@ pub enum Instruction {
     Jump(JumpCondition),
     JumpHL,
     RelativeJump(JumpCondition),
+    Push(PushPopTarget),
+    Pop(PushPopTarget),
     Noop,
     Stop,
     DisableInterrupt,
@@ -215,7 +217,25 @@ impl Instruction {
             0xf3 => Some(Instruction::DisableInterrupt),
             0xfb => Some(Instruction::EnableInterrupt),
             0x76 => Some(Instruction::Halt),
-            _ => None,
+            0xc1 => Some(Instruction::Pop(PushPopTarget::BC)),
+            0xd1 => Some(Instruction::Pop(PushPopTarget::DE)),
+            0xe1 => Some(Instruction::Pop(PushPopTarget::HL)),
+            0xf1 => Some(Instruction::Pop(PushPopTarget::AF)),
+            0xc5 => Some(Instruction::Pop(PushPopTarget::BC)),
+            0xd5 => Some(Instruction::Pop(PushPopTarget::DE)),
+            0xe5 => Some(Instruction::Pop(PushPopTarget::HL)),
+            0xf5 => Some(Instruction::Pop(PushPopTarget::AF)),
+            0xd3 => None,
+            0xe3 => None,
+            0xe4 => None,
+            0xf4 => None,
+            0xdb => None,
+            0xeb => None,
+            0xec => None,
+            0xfc => None,
+            0xdd => None,
+            0xed => None,
+            0xfd => None,
         }
     }
 }
@@ -272,4 +292,11 @@ pub enum LoadTarget16 {
     DE,
     HL,
     SP,
+}
+
+pub enum PushPopTarget {
+    BC,
+    DE,
+    HL,
+    AF,
 }

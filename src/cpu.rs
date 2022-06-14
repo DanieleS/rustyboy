@@ -7,7 +7,7 @@ use instructions::{
     RamAddressRegistry,
 };
 
-use self::instructions::LoadTarget16;
+use self::instructions::{LoadTarget16, PushPopTarget};
 
 #[derive(Debug)]
 enum ExecutionState {
@@ -183,6 +183,8 @@ impl Cpu {
             Instruction::Decrement(target) => execute_decrement(self, target),
             Instruction::Increment16(target) => execute_increment16(self, target),
             Instruction::Decrement16(target) => execute_decrement16(self, target),
+            Instruction::Push(target) => execute_push(self, target),
+            Instruction::Pop(target) => execute_pop(self, target),
             Instruction::RotateLeft => execute_rotate_left(self),
             Instruction::RotateLeftCarry => execute_rotate_left_carry(self),
             Instruction::RotateRight => execute_rotate_right(self),
@@ -778,4 +780,32 @@ fn execute_enable_interrupt(cpu: &mut Cpu) -> ExecutionStep {
 
 fn execute_halt(cpu: &mut Cpu) -> ExecutionStep {
     todo!("No idea what halt should do");
+}
+
+fn execute_push(cpu: &mut Cpu, target: PushPopTarget) -> ExecutionStep {
+    let value = match target {
+        PushPopTarget::BC => cpu.registers.get_bc(),
+        PushPopTarget::DE => cpu.registers.get_de(),
+        PushPopTarget::HL => cpu.registers.get_hl(),
+        PushPopTarget::AF => cpu.registers.get_af(),
+    };
+
+    cpu.registers.stack_pointer = cpu.registers.stack_pointer.wrapping_sub(2);
+    cpu.ram.write16(cpu.registers.stack_pointer, value);
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 4)
+}
+
+fn execute_pop(cpu: &mut Cpu, target: PushPopTarget) -> ExecutionStep {
+    let value = cpu.ram.read16(cpu.registers.stack_pointer);
+    cpu.registers.stack_pointer = cpu.registers.stack_pointer.wrapping_add(2);
+
+    match target {
+        PushPopTarget::BC => cpu.registers.set_bc(value),
+        PushPopTarget::DE => cpu.registers.set_de(value),
+        PushPopTarget::HL => cpu.registers.set_hl(value),
+        PushPopTarget::AF => cpu.registers.set_af(value),
+    };
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 3)
 }
