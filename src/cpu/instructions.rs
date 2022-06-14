@@ -31,6 +31,9 @@ pub enum Instruction {
     RelativeJump(JumpCondition),
     Noop,
     Stop,
+    DisableInterrupt,
+    EnableInterrupt,
+    Halt,
 }
 
 impl Instruction {
@@ -209,6 +212,9 @@ impl Instruction {
             0x2f => Some(Instruction::Complement),
             0x3f => Some(Instruction::ComplementCarryFlag),
             0x10 => Some(Instruction::Stop),
+            0xf3 => Some(Instruction::DisableInterrupt),
+            0xfb => Some(Instruction::EnableInterrupt),
+            0x76 => Some(Instruction::Halt),
             _ => None,
         }
     }

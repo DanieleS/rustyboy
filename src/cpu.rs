@@ -10,9 +10,17 @@ use instructions::{
 use self::instructions::LoadTarget16;
 
 #[derive(Debug)]
+enum ExecutionState {
+    Running,
+    Halted,
+    InterruptDispatch,
+}
+
+#[derive(Debug)]
 struct ExecutionStep {
     program_counter: u16,
     cycles: u8,
+    state: ExecutionState,
 }
 
 impl ExecutionStep {
@@ -20,6 +28,15 @@ impl ExecutionStep {
         ExecutionStep {
             program_counter,
             cycles,
+            state: ExecutionState::Running,
+        }
+    }
+
+    fn new_with_state(program_counter: u16, cycles: u8, state: ExecutionState) -> ExecutionStep {
+        ExecutionStep {
+            program_counter,
+            cycles,
+            state,
         }
     }
 }
@@ -114,6 +131,7 @@ impl std::convert::From<u8> for FlagsRegister {
 struct Cpu {
     registers: Registers,
     ram: Ram,
+    ime: bool,
 }
 
 impl Cpu {
@@ -123,6 +141,7 @@ impl Cpu {
         let ExecutionStep {
             program_counter,
             cycles,
+            state: _,
         } = if let Some(instruction) = instruction {
             self.execute(instruction)
         } else {
@@ -173,6 +192,9 @@ impl Cpu {
             Instruction::Complement => execute_complement(self),
             Instruction::ComplementCarryFlag => execute_complement_carry_flag(self),
             Instruction::Stop => execute_stop(),
+            Instruction::DisableInterrupt => execute_disable_interrupt(self),
+            Instruction::EnableInterrupt => execute_enable_interrupt(self),
+            Instruction::Halt => execute_halt(self),
         }
     }
 }
@@ -740,4 +762,20 @@ fn execute_complement_carry_flag(cpu: &mut Cpu) -> ExecutionStep {
 
 fn execute_stop() -> ! {
     panic!("STOP!");
+}
+
+fn execute_disable_interrupt(cpu: &mut Cpu) -> ExecutionStep {
+    cpu.ime = false;
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
+}
+
+fn execute_enable_interrupt(cpu: &mut Cpu) -> ExecutionStep {
+    cpu.ime = true;
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
+}
+
+fn execute_halt(cpu: &mut Cpu) -> ExecutionStep {
+    todo!("No idea what halt should do");
 }
