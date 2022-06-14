@@ -30,6 +30,7 @@ pub enum Instruction {
     JumpHL,
     RelativeJump(JumpCondition),
     Noop,
+    Stop,
 }
 
 impl Instruction {
@@ -207,6 +208,7 @@ impl Instruction {
             0x37 => Some(Instruction::SetCarryFlag),
             0x2f => Some(Instruction::Complement),
             0x3f => Some(Instruction::ComplementCarryFlag),
+            0x10 => Some(Instruction::Stop),
             _ => None,
         }
     }

@@ -172,6 +172,7 @@ impl Cpu {
             Instruction::SetCarryFlag => execute_set_carry_flag(self),
             Instruction::Complement => execute_complement(self),
             Instruction::ComplementCarryFlag => execute_complement_carry_flag(self),
+            Instruction::Stop => execute_stop(),
         }
     }
 }
@@ -735,4 +736,8 @@ fn execute_complement_carry_flag(cpu: &mut Cpu) -> ExecutionStep {
     cpu.registers.f.half_carry = false;
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
+}
+
+fn execute_stop() -> ! {
+    panic!("STOP!");
 }
