@@ -689,7 +689,7 @@ fn execute_decrement(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
         let new_value = value.wrapping_sub(1);
 
         cpu.registers.f.subtract = true;
-        cpu.registers.f.half_carry = (value & 0xF) == 0xF;
+        cpu.registers.f.half_carry = (value & 0xF) == 0;
         cpu.registers.f.zero = new_value == 0;
 
         new_value
