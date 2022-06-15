@@ -2,17 +2,18 @@ use anyhow::Result;
 use std::{fs::File, io::Read};
 
 #[derive(Clone, Debug)]
-pub struct CartridgeInfo {
+pub struct Cartridge {
     pub title: String,
+    pub data: Vec<u8>,
 }
 
-impl CartridgeInfo {
+impl Cartridge {
     pub fn from_path(path: String) -> Result<Self> {
         let mut cartridge_file = File::open(path)?;
         let mut cartridge_data = vec![];
         cartridge_file.read_to_end(&mut cartridge_data)?;
 
-        CartridgeInfo::from_data(cartridge_data)
+        Cartridge::from_data(cartridge_data)
     }
 
     pub fn from_data(data: Vec<u8>) -> Result<Self> {
@@ -20,9 +21,9 @@ impl CartridgeInfo {
             return Err(anyhow::anyhow!("Invalid cartridge size"));
         }
 
-        let title = CartridgeInfo::parse_title(&data)?;
+        let title = Cartridge::parse_title(&data)?;
 
-        Ok(CartridgeInfo { title })
+        Ok(Cartridge { title, data })
     }
 
     fn is_new_cartridge(data: &[u8]) -> bool {
@@ -30,7 +31,7 @@ impl CartridgeInfo {
     }
 
     fn parse_title(data: &[u8]) -> Result<String> {
-        let title_range = if CartridgeInfo::is_new_cartridge(&data) {
+        let title_range = if Cartridge::is_new_cartridge(&data) {
             0x134..0x13f
         } else {
             0x134..0x13c

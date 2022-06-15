@@ -1,5 +1,7 @@
 mod instructions;
 
+use std::fmt::{Display, Formatter};
+
 use crate::ram::Ram;
 use crate::utils::int::test_add_carry_bit;
 use instructions::{
@@ -56,6 +58,21 @@ pub struct Registers {
 }
 
 impl Registers {
+    fn new() -> Self {
+        Registers {
+            a: 0x01,
+            b: 0x00,
+            c: 0x13,
+            d: 0x00,
+            e: 0xd8,
+            f: FlagsRegister::from(0xb0),
+            h: 0x01,
+            l: 0x4d,
+            program_counter: 0x100,
+            stack_pointer: 0xfffe,
+        }
+    }
+
     // 16-bit getter
     pub fn get_af(&self) -> u16 {
         ((self.a as u16) << 8) | (u8::from(&self.f) as u16)
@@ -95,6 +112,21 @@ impl Registers {
     }
 }
 
+impl Display for Registers {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "AF: {:04X} BC: {:04X} DE: {:04X} HL: {:04X} SP: {:04X} PC: {:04X}",
+            self.get_af(),
+            self.get_bc(),
+            self.get_de(),
+            self.get_hl(),
+            self.stack_pointer,
+            self.program_counter
+        )
+    }
+}
+
 #[derive(Debug)]
 pub struct FlagsRegister {
     zero: bool,
@@ -128,14 +160,22 @@ impl std::convert::From<u8> for FlagsRegister {
     }
 }
 
-struct Cpu {
+pub struct Cpu {
     registers: Registers,
-    ram: Ram,
+    pub ram: Ram,
     ime: bool,
 }
 
 impl Cpu {
-    fn step(&mut self) -> u8 {
+    pub fn new() -> Self {
+        Cpu {
+            registers: Registers::new(),
+            ram: Ram::new(),
+            ime: false,
+        }
+    }
+
+    pub fn step(&mut self) -> u8 {
         let opcode = self.ram.read(self.registers.program_counter);
         let instruction = Instruction::from_byte(opcode);
         let ExecutionStep {
@@ -149,6 +189,9 @@ impl Cpu {
         };
 
         self.registers.program_counter = program_counter;
+
+        println!("{}", self);
+
         cycles
     }
 
@@ -223,6 +266,15 @@ impl Cpu {
         let value = self.ram.read16(self.registers.stack_pointer);
         self.registers.stack_pointer = self.registers.stack_pointer.wrapping_add(2);
         value
+    }
+}
+
+impl Display for Cpu {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "Cpu {{\n")?;
+        write!(f, "  registers: {},\n", self.registers)?;
+        write!(f, "  ime: {}\n", self.ime)?;
+        write!(f, "}}")
     }
 }
 
@@ -406,7 +458,6 @@ fn execute_add16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionStep {
     }
 
     match target {
-        ArithmeticTarget16::AF => add16(cpu, cpu.registers.get_af()),
         ArithmeticTarget16::BC => add16(cpu, cpu.registers.get_bc()),
         ArithmeticTarget16::DE => add16(cpu, cpu.registers.get_de()),
         ArithmeticTarget16::HL => add16(cpu, cpu.registers.get_hl()),
