@@ -206,6 +206,11 @@ impl Cpu {
             Instruction::ExtendedOpcode => execute_extended_opcode(self),
             Instruction::LoadH => execute_load_h(self),
             Instruction::WriteH => execute_write_h(self),
+            Instruction::LoadHC => execute_load_hc(self),
+            Instruction::WriteHC => execute_write_hc(self),
+            Instruction::AddSP => execute_add_sp(self),
+            Instruction::LoadSPHL => execute_load_sp_hl(self),
+            Instruction::LoadHLSP => execute_load_hl_sp(self),
         }
     }
 
@@ -442,7 +447,7 @@ fn execute_relative_jump(cpu: &mut Cpu, condition: JumpCondition) -> ExecutionSt
         let address = cpu
             .registers
             .program_counter
-            .overflowing_add(offset as u16)
+            .overflowing_add(offset as i16 as u16)
             .0;
         ExecutionStep::new(address, 3)
     } else {
@@ -460,6 +465,10 @@ fn exeute_load(cpu: &mut Cpu, destination: LoadTarget, source: LoadTarget) -> Ex
         LoadTarget::H => cpu.registers.h,
         LoadTarget::L => cpu.registers.l,
         LoadTarget::HL => cpu.ram.read(cpu.registers.get_hl()),
+        LoadTarget::ImmediateAddress => {
+            let address = cpu.ram.read16(cpu.registers.program_counter + 1);
+            cpu.ram.read(address)
+        }
     };
 
     match destination {
@@ -471,12 +480,27 @@ fn exeute_load(cpu: &mut Cpu, destination: LoadTarget, source: LoadTarget) -> Ex
         LoadTarget::H => cpu.registers.h = value,
         LoadTarget::L => cpu.registers.l = value,
         LoadTarget::HL => cpu.ram.write(cpu.registers.get_hl(), value),
+        LoadTarget::ImmediateAddress => {
+            let address = cpu.ram.read16(cpu.registers.program_counter + 1);
+            cpu.ram.write(address, value)
+        }
     };
 
     ExecutionStep::new(
-        cpu.registers.program_counter.wrapping_add(1),
+        cpu.registers.program_counter.wrapping_add(
+            if source == LoadTarget::ImmediateAddress || destination == LoadTarget::ImmediateAddress
+            {
+                3
+            } else {
+                1
+            },
+        ),
         if source == LoadTarget::HL || destination == LoadTarget::HL {
             2
+        } else if source == LoadTarget::ImmediateAddress
+            || destination == LoadTarget::ImmediateAddress
+        {
+            4
         } else {
             1
         },
@@ -495,6 +519,7 @@ fn execute_load_immediate(cpu: &mut Cpu, destination: LoadTarget) -> ExecutionSt
         LoadTarget::H => cpu.registers.h = value,
         LoadTarget::L => cpu.registers.l = value,
         LoadTarget::HL => cpu.ram.write(cpu.registers.get_hl(), value),
+        LoadTarget::ImmediateAddress => (),
     };
 
     ExecutionStep::new(
@@ -895,4 +920,47 @@ fn execute_write_h(cpu: &mut Cpu) -> ExecutionStep {
     cpu.ram.write(half_address as u16 + 0xFF00, cpu.registers.a);
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(2), 3)
+}
+
+fn execute_load_hc(cpu: &mut Cpu) -> ExecutionStep {
+    let half_address = cpu.registers.c;
+    cpu.registers.a = cpu.ram.read(half_address as u16 + 0xFF00);
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
+}
+
+fn execute_write_hc(cpu: &mut Cpu) -> ExecutionStep {
+    let half_address = cpu.registers.c;
+    cpu.ram.write(half_address as u16 + 0xFF00, cpu.registers.a);
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
+}
+
+fn execute_add_sp(cpu: &mut Cpu) -> ExecutionStep {
+    let offset = cpu
+        .ram
+        .read_signed(cpu.registers.program_counter.wrapping_add(1)) as i16 as u16;
+    let sp = cpu.registers.stack_pointer;
+
+    cpu.registers.stack_pointer = sp.wrapping_add(offset);
+    cpu.registers.f.subtract = false;
+    cpu.registers.f.zero = false;
+    cpu.registers.f.half_carry = test_add_carry_bit(3, sp, offset);
+    cpu.registers.f.carry = test_add_carry_bit(7, sp, offset);
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(2), 4)
+}
+
+fn execute_load_sp_hl(cpu: &mut Cpu) -> ExecutionStep {
+    let hl = cpu.registers.get_hl();
+    cpu.registers.stack_pointer = hl;
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
+}
+
+fn execute_load_hl_sp(cpu: &mut Cpu) -> ExecutionStep {
+    execute_add_sp(cpu);
+    cpu.registers.set_hl(cpu.registers.stack_pointer);
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
 }

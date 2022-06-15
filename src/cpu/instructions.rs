@@ -2,8 +2,12 @@ pub enum Instruction {
     Load(LoadTarget, LoadTarget),
     LoadImmediate(LoadTarget),
     LoadImmediate16(LoadTarget16),
+    LoadSPHL,
+    LoadHLSP,
     LoadH,
     WriteH,
+    LoadHC,
+    WriteHC,
     ReadFromRam(RamAddressRegistry),
     WriteToRamFromStackPointer,
     WriteToRam(RamAddressRegistry),
@@ -16,6 +20,7 @@ pub enum Instruction {
     Or(ArithmeticTarget),
     Cp(ArithmeticTarget),
     Add16(ArithmeticTarget16),
+    AddSP,
     Increment(ArithmeticTarget),
     Decrement(ArithmeticTarget),
     Increment16(ArithmeticTarget16),
@@ -288,6 +293,19 @@ impl Instruction {
             0xcb => Some(Instruction::ExtendedOpcode),
             0xe0 => Some(Instruction::WriteH),
             0xf0 => Some(Instruction::LoadH),
+            0xe2 => Some(Instruction::WriteHC),
+            0xf2 => Some(Instruction::LoadHC),
+            0xe8 => Some(Instruction::AddSP),
+            0xea => Some(Instruction::Load(
+                LoadTarget::ImmediateAddress,
+                LoadTarget::A,
+            )),
+            0xfa => Some(Instruction::Load(
+                LoadTarget::A,
+                LoadTarget::ImmediateAddress,
+            )),
+            0xf8 => Some(Instruction::LoadSPHL),
+            0xf9 => Some(Instruction::LoadSPHL),
             0xd3 => None,
             0xe3 => None,
             0xe4 => None,
@@ -341,6 +359,7 @@ pub enum LoadTarget {
     H,
     L,
     HL,
+    ImmediateAddress,
 }
 
 pub enum RamAddressRegistry {
