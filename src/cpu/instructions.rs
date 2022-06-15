@@ -2,6 +2,8 @@ pub enum Instruction {
     Load(LoadTarget, LoadTarget),
     LoadImmediate(LoadTarget),
     LoadImmediate16(LoadTarget16),
+    LoadH,
+    WriteH,
     ReadFromRam(RamAddressRegistry),
     WriteToRamFromStackPointer,
     WriteToRam(RamAddressRegistry),
@@ -42,6 +44,7 @@ pub enum Instruction {
     ReturnCondition(JumpCondition),
     ReturnAndEnableInterrupts,
     Halt,
+    ExtendedOpcode,
 }
 
 impl Instruction {
@@ -282,6 +285,9 @@ impl Instruction {
             0xdf => Some(Instruction::Restart(0x18)),
             0xef => Some(Instruction::Restart(0x28)),
             0xff => Some(Instruction::Restart(0x38)),
+            0xcb => Some(Instruction::ExtendedOpcode),
+            0xe0 => Some(Instruction::WriteH),
+            0xf0 => Some(Instruction::LoadH),
             0xd3 => None,
             0xe3 => None,
             0xe4 => None,

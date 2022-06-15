@@ -203,6 +203,9 @@ impl Cpu {
             Instruction::ReturnCondition(condition) => execute_return_condition(self, condition),
             Instruction::ReturnAndEnableInterrupts => execute_return_and_enable_interrupts(self),
             Instruction::Restart(address) => execute_restart(self, address),
+            Instruction::ExtendedOpcode => execute_extended_opcode(self),
+            Instruction::LoadH => execute_load_h(self),
+            Instruction::WriteH => execute_write_h(self),
         }
     }
 
@@ -874,4 +877,22 @@ fn execute_restart(cpu: &mut Cpu, address: u8) -> ExecutionStep {
     cpu.push(pc);
 
     ExecutionStep::new(address as u16, 4)
+}
+
+fn execute_extended_opcode(cpu: &mut Cpu) -> ExecutionStep {
+    todo!("Extended opcode");
+}
+
+fn execute_load_h(cpu: &mut Cpu) -> ExecutionStep {
+    let half_address = cpu.ram.read(cpu.registers.program_counter.wrapping_add(1));
+    cpu.registers.a = cpu.ram.read(half_address as u16 + 0xFF00);
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(2), 3)
+}
+
+fn execute_write_h(cpu: &mut Cpu) -> ExecutionStep {
+    let half_address = cpu.ram.read(cpu.registers.program_counter.wrapping_add(1));
+    cpu.ram.write(half_address as u16 + 0xFF00, cpu.registers.a);
+
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(2), 3)
 }
