@@ -161,7 +161,7 @@ impl std::convert::From<u8> for FlagsRegister {
 }
 
 pub struct Cpu {
-    registers: Registers,
+    pub registers: Registers,
     pub ram: Ram,
     ime: bool,
 }
@@ -189,8 +189,6 @@ impl Cpu {
         };
 
         self.registers.program_counter = program_counter;
-
-        println!("{}", self);
 
         cycles
     }
@@ -236,7 +234,7 @@ impl Cpu {
             Instruction::SetCarryFlag => execute_set_carry_flag(self),
             Instruction::Complement => execute_complement(self),
             Instruction::ComplementCarryFlag => execute_complement_carry_flag(self),
-            Instruction::Stop => execute_stop(),
+            Instruction::Stop => execute_stop(self),
             Instruction::DisableInterrupts => execute_disable_interrupts(self),
             Instruction::EnableInterrupts => execute_enable_interrupts(self),
             Instruction::Halt => execute_halt(self),
@@ -495,12 +493,9 @@ fn execute_relative_jump(cpu: &mut Cpu, condition: JumpCondition) -> ExecutionSt
 
     if condition_met {
         let offset = cpu.ram.read_signed(cpu.registers.program_counter + 1);
-        let address = cpu
-            .registers
-            .program_counter
-            .overflowing_add(offset as i16 as u16)
-            .0;
-        ExecutionStep::new(address, 3)
+
+        let address = cpu.registers.program_counter.wrapping_add(offset as u16);
+        ExecutionStep::new(address.wrapping_add(2), 3)
     } else {
         ExecutionStep::new(cpu.registers.program_counter.overflowing_add(2).0, 2)
     }
@@ -858,7 +853,8 @@ fn execute_complement_carry_flag(cpu: &mut Cpu) -> ExecutionStep {
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
 }
 
-fn execute_stop() -> ! {
+fn execute_stop(cpu: &mut Cpu) -> ! {
+    println!("{}", cpu);
     panic!("STOP!");
 }
 

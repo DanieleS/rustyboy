@@ -14,14 +14,16 @@ impl Hardware {
     }
 
     pub fn run(&mut self) {
-        self.cpu.step(); // Nop
-        self.cpu.step(); // JP 1
-        self.cpu.step(); // JP 2
-        self.cpu.step(); // xor a
-        self.cpu.step(); // ld hl
-        self.cpu.step(); // c 10
-        self.cpu.step(); // b 0
-        self.cpu.step(); // ldd [hl], a
-        self.cpu.step(); // dec b
+        let debug_breakpoint: u16 = 0x0231;
+        loop {
+            self.cpu.step();
+
+            if self.cpu.registers.program_counter == debug_breakpoint {
+                println!("{}", self.cpu);
+                self.cpu.step();
+                println!("{}", self.cpu);
+                break;
+            }
+        }
     }
 }
