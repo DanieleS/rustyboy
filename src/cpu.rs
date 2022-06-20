@@ -2,7 +2,7 @@ mod instructions;
 
 use std::fmt::{Display, Formatter};
 
-use crate::ram::Ram;
+use crate::memory::Memory;
 use crate::utils::int::test_add_carry_bit;
 use instructions::{
     ArithmeticTarget, ArithmeticTarget16, Instruction, JumpCondition, LoadTarget,
@@ -162,7 +162,7 @@ impl std::convert::From<u8> for FlagsRegister {
 
 pub struct Cpu {
     pub registers: Registers,
-    pub ram: Ram,
+    pub ram: Memory,
     ime: bool,
 }
 
@@ -170,7 +170,7 @@ impl Cpu {
     pub fn new() -> Self {
         Cpu {
             registers: Registers::new(),
-            ram: Ram::new(),
+            ram: Memory::new(),
             ime: false,
         }
     }
@@ -301,6 +301,8 @@ fn execute_arithmetic(
     let register_a = cpu.registers.a;
     let register_hl = cpu.registers.get_hl();
 
+    let hl_value = cpu.ram.read(register_hl);
+
     match target {
         ArithmeticTarget::A => function(cpu, target, register_a),
         ArithmeticTarget::B => function(cpu, target, cpu.registers.b),
@@ -309,7 +311,7 @@ fn execute_arithmetic(
         ArithmeticTarget::E => function(cpu, target, cpu.registers.e),
         ArithmeticTarget::H => function(cpu, target, cpu.registers.h),
         ArithmeticTarget::L => function(cpu, target, cpu.registers.l),
-        ArithmeticTarget::HL => function(cpu, target, cpu.ram.read(register_hl)),
+        ArithmeticTarget::HL => function(cpu, target, hl_value),
         ArithmeticTarget::Immediate => {
             let immediate = cpu.ram.read(cpu.registers.program_counter + 1);
             function(cpu, target, immediate)
@@ -655,6 +657,8 @@ fn execute_increment(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
         new_value
     }
 
+    let hl_value = cpu.ram.read(cpu.registers.get_hl());
+
     match target {
         ArithmeticTarget::A => cpu.registers.a = increment(cpu, cpu.registers.a),
         ArithmeticTarget::B => cpu.registers.b = increment(cpu, cpu.registers.b),
@@ -664,7 +668,7 @@ fn execute_increment(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
         ArithmeticTarget::H => cpu.registers.h = increment(cpu, cpu.registers.h),
         ArithmeticTarget::L => cpu.registers.l = increment(cpu, cpu.registers.l),
         ArithmeticTarget::HL => {
-            let new_value = increment(cpu, cpu.ram.read(cpu.registers.get_hl()));
+            let new_value = increment(cpu, hl_value);
             cpu.ram.write(cpu.registers.get_hl(), new_value)
         }
         ArithmeticTarget::Immediate => (),
@@ -690,6 +694,8 @@ fn execute_decrement(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
         new_value
     }
 
+    let hl_value = cpu.ram.read(cpu.registers.get_hl());
+
     match target {
         ArithmeticTarget::A => cpu.registers.a = decrement(cpu, cpu.registers.a),
         ArithmeticTarget::B => cpu.registers.b = decrement(cpu, cpu.registers.b),
@@ -699,7 +705,7 @@ fn execute_decrement(cpu: &mut Cpu, target: ArithmeticTarget) -> ExecutionStep {
         ArithmeticTarget::H => cpu.registers.h = decrement(cpu, cpu.registers.h),
         ArithmeticTarget::L => cpu.registers.l = decrement(cpu, cpu.registers.l),
         ArithmeticTarget::HL => {
-            let new_value = decrement(cpu, cpu.ram.read(cpu.registers.get_hl()));
+            let new_value = decrement(cpu, hl_value);
             cpu.ram.write(cpu.registers.get_hl(), new_value)
         }
         ArithmeticTarget::Immediate => (),

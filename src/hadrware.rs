@@ -14,10 +14,9 @@ impl Hardware {
     }
 
     pub fn run(&mut self) {
-        let debug_breakpoint: u16 = 0x0231;
+        let debug_breakpoint: u16 = 0x0237;
         loop {
             self.cpu.step();
-
             if self.cpu.registers.program_counter == debug_breakpoint {
                 println!("{}", self.cpu);
                 self.cpu.step();
