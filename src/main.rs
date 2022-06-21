@@ -7,7 +7,9 @@ use crate::hadrware::Hardware;
 mod cartridge;
 mod cpu;
 mod hadrware;
+mod lcd;
 mod memory;
+mod ppu;
 mod utils;
 
 fn main() -> Result<()> {
