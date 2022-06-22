@@ -1,3 +1,6 @@
+pub mod palette;
+pub mod tiles;
+
 use crate::memory::Memory;
 
 pub enum PpuMode {
@@ -29,7 +32,6 @@ impl Ppu {
                     self.scanline += 1;
                     self.dots = 0;
                     if self.scanline == 143 {
-                        println!("VBlank");
                         self.mode = PpuMode::VBlank;
                     } else {
                         self.mode = PpuMode::OamSearch;
@@ -59,7 +61,6 @@ impl Ppu {
             }
             PpuMode::PixelTransfer => {
                 if self.dots == 152 {
-                    println!("VBlank");
                     self.mode = PpuMode::HBlank;
                 } else {
                     self.dots += 1;

@@ -78,7 +78,7 @@ impl Memory {
         }
     }
 
-    pub fn read(&mut self, address: u16) -> u8 {
+    pub fn read(&self, address: u16) -> u8 {
         match address {
             0x0000..=0x3fff => self.cartridge_bank_0.read(address),
             0x4000..=0x7fff => self.cartridge_banks_1_n.get().read(address),
@@ -86,7 +86,10 @@ impl Memory {
             0xa000..=0xbfff => self.external_ram.get().read(address),
             0xc000..=0xcfff => self.work_ram.read(address),
             0xd000..=0xdfff => self.work_ram_1_n.get().read(address),
-            0xe000..=0xfdff => self.work_ram.read(address),
+            0xe000..=0xfdff => {
+                let new_addr = address - 0x2000;
+                self.read(new_addr)
+            }
             0xfe00..=0xfeff => self.oam.read(address),
             0xff00..=0xff7f => self.io_registers.read(address),
             0xff80..=0xfffe => self.hram.read(address),
@@ -94,11 +97,11 @@ impl Memory {
         }
     }
 
-    pub fn read_signed(&mut self, address: u16) -> i8 {
+    pub fn read_signed(&self, address: u16) -> i8 {
         self.read(address) as i8
     }
 
-    pub fn read16(&mut self, address: u16) -> u16 {
+    pub fn read16(&self, address: u16) -> u16 {
         self.read(address) as u16 | ((self.read(address + 1) as u16) << 8)
     }
 
