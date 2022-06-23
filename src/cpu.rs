@@ -268,6 +268,13 @@ impl Cpu {
             Instruction::RotateLeftCarry(target) => execute_rotate_left_carry(self, ram, target),
             Instruction::RotateRight(target) => execute_rotate_right(self, ram, target),
             Instruction::RotateRightCarry(target) => execute_rotate_right_carry(self, ram, target),
+            Instruction::ShiftLeftArithmetic(target) => {
+                execute_shift_left_arithmetic(self, ram, target)
+            }
+            Instruction::ShiftRightArithmetic(target) => {
+                execute_shift_right_arithmetic(self, ram, target)
+            }
+            Instruction::Swap(target) => execute_swap(self, ram, target),
         }
     }
 
@@ -1194,4 +1201,58 @@ fn execute_rotate_right_carry(
     }
 
     execute_byte_arithmetic(cpu, ram, &target, rotate_left_carry)
+}
+
+fn execute_shift_left_arithmetic(
+    cpu: &mut Cpu,
+    ram: &mut Memory,
+    target: ByteArithmeticTarget,
+) -> ExecutionStep {
+    fn shift_left(cpu: &mut Cpu, value: u8) -> u8 {
+        let new_value = value << 1;
+
+        cpu.registers.f.zero = new_value == 0;
+        cpu.registers.f.subtract = false;
+        cpu.registers.f.half_carry = false;
+        cpu.registers.f.carry = (value & 0x80) != 0;
+
+        new_value
+    }
+
+    execute_byte_arithmetic(cpu, ram, &target, shift_left)
+}
+
+fn execute_shift_right_arithmetic(
+    cpu: &mut Cpu,
+    ram: &mut Memory,
+    target: ByteArithmeticTarget,
+) -> ExecutionStep {
+    fn shift_right(cpu: &mut Cpu, value: u8) -> u8 {
+        let hi = value & 0x80;
+        let new_value = (value >> 1) | hi;
+
+        cpu.registers.f.zero = new_value == 0;
+        cpu.registers.f.subtract = false;
+        cpu.registers.f.half_carry = false;
+        cpu.registers.f.carry = (value & 0x01) != 0;
+
+        new_value
+    }
+
+    execute_byte_arithmetic(cpu, ram, &target, shift_right)
+}
+
+fn execute_swap(cpu: &mut Cpu, ram: &mut Memory, target: ByteArithmeticTarget) -> ExecutionStep {
+    fn swap(cpu: &mut Cpu, value: u8) -> u8 {
+        let new_value = (value >> 4) | (value << 4);
+
+        cpu.registers.f.zero = new_value == 0;
+        cpu.registers.f.subtract = false;
+        cpu.registers.f.half_carry = false;
+        cpu.registers.f.carry = false;
+
+        new_value
+    }
+
+    execute_byte_arithmetic(cpu, ram, &target, swap)
 }

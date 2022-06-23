@@ -56,6 +56,9 @@ pub enum Instruction {
     RotateRight(ByteArithmeticTarget),
     RotateLeftCarry(ByteArithmeticTarget),
     RotateRightCarry(ByteArithmeticTarget),
+    ShiftLeftArithmetic(ByteArithmeticTarget),
+    ShiftRightArithmetic(ByteArithmeticTarget),
+    Swap(ByteArithmeticTarget),
 }
 
 impl Instruction {
@@ -368,7 +371,34 @@ impl Instruction {
             0x1d => Some(Instruction::RotateRightCarry(ByteArithmeticTarget::L)),
             0x1e => Some(Instruction::RotateRightCarry(ByteArithmeticTarget::HL)),
             0x1f => Some(Instruction::RotateRightCarry(ByteArithmeticTarget::A)),
-            _ => todo!("Not implemented"),
+            0x20 => Some(Instruction::ShiftLeftArithmetic(ByteArithmeticTarget::B)),
+            0x21 => Some(Instruction::ShiftLeftArithmetic(ByteArithmeticTarget::C)),
+            0x22 => Some(Instruction::ShiftLeftArithmetic(ByteArithmeticTarget::D)),
+            0x23 => Some(Instruction::ShiftLeftArithmetic(ByteArithmeticTarget::E)),
+            0x24 => Some(Instruction::ShiftLeftArithmetic(ByteArithmeticTarget::H)),
+            0x25 => Some(Instruction::ShiftLeftArithmetic(ByteArithmeticTarget::L)),
+            0x26 => Some(Instruction::ShiftLeftArithmetic(ByteArithmeticTarget::HL)),
+            0x27 => Some(Instruction::ShiftLeftArithmetic(ByteArithmeticTarget::A)),
+            0x28 => Some(Instruction::ShiftRightArithmetic(ByteArithmeticTarget::B)),
+            0x29 => Some(Instruction::ShiftRightArithmetic(ByteArithmeticTarget::C)),
+            0x2a => Some(Instruction::ShiftRightArithmetic(ByteArithmeticTarget::D)),
+            0x2b => Some(Instruction::ShiftRightArithmetic(ByteArithmeticTarget::E)),
+            0x2c => Some(Instruction::ShiftRightArithmetic(ByteArithmeticTarget::H)),
+            0x2d => Some(Instruction::ShiftRightArithmetic(ByteArithmeticTarget::L)),
+            0x2e => Some(Instruction::ShiftRightArithmetic(ByteArithmeticTarget::HL)),
+            0x2f => Some(Instruction::ShiftRightArithmetic(ByteArithmeticTarget::A)),
+            0x30 => Some(Instruction::Swap(ByteArithmeticTarget::B)),
+            0x31 => Some(Instruction::Swap(ByteArithmeticTarget::C)),
+            0x32 => Some(Instruction::Swap(ByteArithmeticTarget::D)),
+            0x33 => Some(Instruction::Swap(ByteArithmeticTarget::E)),
+            0x34 => Some(Instruction::Swap(ByteArithmeticTarget::H)),
+            0x35 => Some(Instruction::Swap(ByteArithmeticTarget::L)),
+            0x36 => Some(Instruction::Swap(ByteArithmeticTarget::HL)),
+            0x37 => Some(Instruction::Swap(ByteArithmeticTarget::A)),
+            target => {
+                println!("{:02x}", target);
+                todo!("Not implemented")
+            }
         }
     }
 }

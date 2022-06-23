@@ -18,7 +18,7 @@ impl Hardware {
     }
 
     pub fn run(&mut self) {
-        let debug_breakpoint: u16 = 0xffba;
+        let debug_breakpoint: u16 = 0x29b2;
 
         let mut next_is_extended_instruction = false;
 
