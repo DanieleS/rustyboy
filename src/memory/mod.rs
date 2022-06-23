@@ -5,9 +5,25 @@ trait Memo {
     fn write(&mut self, address: u16, value: u8);
 }
 
-struct MemoryBank<const C: usize> {
+pub struct MemoryBank<const C: usize> {
     data: [u8; C],
     offset: usize,
+}
+
+impl<const C: usize> std::fmt::Debug for MemoryBank<C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let rows = self.data.chunks(16);
+        for (i, row) in rows.enumerate() {
+            let row_str = row
+                .iter()
+                .map(|&x| format!("{:02x}", x))
+                .collect::<Vec<_>>()
+                .join(" ");
+            writeln!(f, "{:04X} {}", self.offset + i * 0x10, row_str)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl<const C: usize> MemoryBank<C> {
@@ -51,7 +67,7 @@ pub struct Memory {
     work_ram: MemoryBank<0x1000>,
     work_ram_1_n: Zipper<MemoryBank<0x1000>>,
     oam: MemoryBank<0x100>,
-    io_registers: MemoryBank<0x80>,
+    pub io_registers: MemoryBank<0x80>,
     hram: MemoryBank<0x7f>,
     interrupt_enable: u8,
 }

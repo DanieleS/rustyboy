@@ -28,7 +28,7 @@ impl Hardware {
     }
 
     pub fn run(&mut self) {
-        let debug_breakpoint: u16 = 0x02f0;
+        let debug_breakpoint: u16 = 0xffba;
         loop {
             let elapsed_cycles = self.cpu.step(&mut self.ram);
 
@@ -38,14 +38,9 @@ impl Hardware {
 
             self.ppu.update_memory(&mut self.ram);
 
-            let lcd_control = LcdControl::from(self.ram.read(0xff40));
-            let bg_data_range = lcd_control.get_background_window_tile_data_area();
-
-            let first_tile = Tile::read_from(&self.ram, bg_data_range.start().clone());
-
             if self.cpu.registers.program_counter == debug_breakpoint {
-                println!("{:?}", first_tile);
                 println!("{}", self.cpu);
+                println!("{:?}", self.ram.io_registers);
                 self.cpu.step(&mut self.ram);
                 println!("{}", self.cpu);
                 break;
