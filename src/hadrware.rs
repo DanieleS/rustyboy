@@ -1,14 +1,4 @@
-use crate::{
-    cartridge::Cartridge,
-    cpu::Cpu,
-    lcd::LcdControl,
-    memory::Memory,
-    ppu::Ppu,
-    ppu::{
-        palette::{Palette, PaletteType},
-        tiles::Tile,
-    },
-};
+use crate::{cartridge::Cartridge, cpu::Cpu, memory::Memory, ppu::Ppu};
 
 pub struct Hardware {
     cpu: Cpu,
@@ -29,8 +19,14 @@ impl Hardware {
 
     pub fn run(&mut self) {
         let debug_breakpoint: u16 = 0xffba;
+
+        let mut next_is_extended_instruction = false;
+
         loop {
-            let elapsed_cycles = self.cpu.step(&mut self.ram);
+            let (elapsed_cycles, next_is_extended) =
+                self.cpu.step(&mut self.ram, next_is_extended_instruction);
+
+            next_is_extended_instruction = next_is_extended;
 
             for _ in 0..(elapsed_cycles * 4) {
                 self.ppu.step();
@@ -41,7 +37,7 @@ impl Hardware {
             if self.cpu.registers.program_counter == debug_breakpoint {
                 println!("{}", self.cpu);
                 println!("{:?}", self.ram.io_registers);
-                self.cpu.step(&mut self.ram);
+                self.cpu.step(&mut self.ram, next_is_extended_instruction);
                 println!("{}", self.cpu);
                 break;
             }

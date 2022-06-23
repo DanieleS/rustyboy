@@ -25,10 +25,10 @@ pub enum Instruction {
     Decrement(ArithmeticTarget),
     Increment16(ArithmeticTarget16),
     Decrement16(ArithmeticTarget16),
-    RotateLeft,
-    RotateLeftCarry,
-    RotateRight,
-    RotateRightCarry,
+    RotateLeftA,
+    RotateLeftCarryA,
+    RotateRightA,
+    RotateRightCarryA,
     DecimalAdjust,
     SetCarryFlag,
     Complement,
@@ -50,10 +50,24 @@ pub enum Instruction {
     ReturnAndEnableInterrupts,
     Halt,
     ExtendedOpcode,
+
+    // Extended
+    RotateLeft(ByteArithmeticTarget),
+    RotateRight(ByteArithmeticTarget),
+    RotateLeftCarry(ByteArithmeticTarget),
+    RotateRightCarry(ByteArithmeticTarget),
 }
 
 impl Instruction {
-    pub fn from_byte(byte: u8) -> Option<Instruction> {
+    pub fn from_byte(byte: u8, is_extended_instruction: bool) -> Option<Instruction> {
+        if !is_extended_instruction {
+            Instruction::from_byte_base(byte)
+        } else {
+            Instruction::from_byte_extended(byte)
+        }
+    }
+
+    fn from_byte_base(byte: u8) -> Option<Instruction> {
         match byte {
             0x00 => Some(Instruction::Noop),
             0x09 => Some(Instruction::Add16(ArithmeticTarget16::BC)),
@@ -251,10 +265,10 @@ impl Instruction {
             0x1b => Some(Instruction::Decrement16(ArithmeticTarget16::DE)),
             0x2b => Some(Instruction::Decrement16(ArithmeticTarget16::HL)),
             0x3b => Some(Instruction::Decrement16(ArithmeticTarget16::SP)),
-            0x07 => Some(Instruction::RotateLeft),
-            0x17 => Some(Instruction::RotateLeftCarry),
-            0x0f => Some(Instruction::RotateRight),
-            0x1f => Some(Instruction::RotateRightCarry),
+            0x07 => Some(Instruction::RotateLeftA),
+            0x17 => Some(Instruction::RotateLeftCarryA),
+            0x0f => Some(Instruction::RotateRightA),
+            0x1f => Some(Instruction::RotateRightCarryA),
             0x27 => Some(Instruction::DecimalAdjust),
             0x37 => Some(Instruction::SetCarryFlag),
             0x2f => Some(Instruction::Complement),
@@ -319,6 +333,44 @@ impl Instruction {
             0xfd => None,
         }
     }
+
+    fn from_byte_extended(byte: u8) -> Option<Instruction> {
+        match byte {
+            0x00 => Some(Instruction::RotateLeft(ByteArithmeticTarget::B)),
+            0x01 => Some(Instruction::RotateLeft(ByteArithmeticTarget::C)),
+            0x02 => Some(Instruction::RotateLeft(ByteArithmeticTarget::D)),
+            0x03 => Some(Instruction::RotateLeft(ByteArithmeticTarget::E)),
+            0x04 => Some(Instruction::RotateLeft(ByteArithmeticTarget::H)),
+            0x05 => Some(Instruction::RotateLeft(ByteArithmeticTarget::L)),
+            0x06 => Some(Instruction::RotateLeft(ByteArithmeticTarget::HL)),
+            0x07 => Some(Instruction::RotateLeft(ByteArithmeticTarget::A)),
+            0x08 => Some(Instruction::RotateRight(ByteArithmeticTarget::B)),
+            0x09 => Some(Instruction::RotateRight(ByteArithmeticTarget::C)),
+            0x0a => Some(Instruction::RotateRight(ByteArithmeticTarget::D)),
+            0x0b => Some(Instruction::RotateRight(ByteArithmeticTarget::E)),
+            0x0c => Some(Instruction::RotateRight(ByteArithmeticTarget::H)),
+            0x0d => Some(Instruction::RotateRight(ByteArithmeticTarget::L)),
+            0x0e => Some(Instruction::RotateRight(ByteArithmeticTarget::HL)),
+            0x0f => Some(Instruction::RotateRight(ByteArithmeticTarget::A)),
+            0x10 => Some(Instruction::RotateLeftCarry(ByteArithmeticTarget::B)),
+            0x11 => Some(Instruction::RotateLeftCarry(ByteArithmeticTarget::C)),
+            0x12 => Some(Instruction::RotateLeftCarry(ByteArithmeticTarget::D)),
+            0x13 => Some(Instruction::RotateLeftCarry(ByteArithmeticTarget::E)),
+            0x14 => Some(Instruction::RotateLeftCarry(ByteArithmeticTarget::H)),
+            0x15 => Some(Instruction::RotateLeftCarry(ByteArithmeticTarget::L)),
+            0x16 => Some(Instruction::RotateLeftCarry(ByteArithmeticTarget::HL)),
+            0x17 => Some(Instruction::RotateLeftCarry(ByteArithmeticTarget::A)),
+            0x18 => Some(Instruction::RotateRightCarry(ByteArithmeticTarget::B)),
+            0x19 => Some(Instruction::RotateRightCarry(ByteArithmeticTarget::C)),
+            0x1a => Some(Instruction::RotateRightCarry(ByteArithmeticTarget::D)),
+            0x1b => Some(Instruction::RotateRightCarry(ByteArithmeticTarget::E)),
+            0x1c => Some(Instruction::RotateRightCarry(ByteArithmeticTarget::H)),
+            0x1d => Some(Instruction::RotateRightCarry(ByteArithmeticTarget::L)),
+            0x1e => Some(Instruction::RotateRightCarry(ByteArithmeticTarget::HL)),
+            0x1f => Some(Instruction::RotateRightCarry(ByteArithmeticTarget::A)),
+            _ => todo!("Not implemented"),
+        }
+    }
 }
 
 pub enum ArithmeticTarget {
@@ -331,6 +383,17 @@ pub enum ArithmeticTarget {
     L,
     HL,
     Immediate,
+}
+
+pub enum ByteArithmeticTarget {
+    A,
+    B,
+    C,
+    D,
+    E,
+    H,
+    L,
+    HL,
 }
 
 pub enum ArithmeticTarget16 {

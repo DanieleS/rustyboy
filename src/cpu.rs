@@ -9,7 +9,7 @@ use instructions::{
     RamAddressRegistry,
 };
 
-use self::instructions::{LoadTarget16, PushPopTarget};
+use self::instructions::{ByteArithmeticTarget, LoadTarget16, PushPopTarget};
 
 #[derive(Debug)]
 enum ExecutionState {
@@ -22,6 +22,7 @@ enum ExecutionState {
 struct ExecutionStep {
     program_counter: u16,
     cycles: u8,
+    next_is_extended_instruction: bool,
     state: ExecutionState,
 }
 
@@ -30,6 +31,7 @@ impl ExecutionStep {
         ExecutionStep {
             program_counter,
             cycles,
+            next_is_extended_instruction: false,
             state: ExecutionState::Running,
         }
     }
@@ -38,6 +40,7 @@ impl ExecutionStep {
         ExecutionStep {
             program_counter,
             cycles,
+            next_is_extended_instruction: false,
             state,
         }
     }
@@ -173,13 +176,14 @@ impl Cpu {
         }
     }
 
-    pub fn step(&mut self, ram: &mut Memory) -> u8 {
+    pub fn step(&mut self, ram: &mut Memory, is_extended_instruction: bool) -> (u8, bool) {
         let opcode = ram.read(self.registers.program_counter);
-        let instruction = Instruction::from_byte(opcode);
+        let instruction = Instruction::from_byte(opcode, is_extended_instruction);
         let ExecutionStep {
             program_counter,
             cycles,
             state: _,
+            next_is_extended_instruction: extended_instruction,
         } = if let Some(instruction) = instruction {
             self.execute(ram, instruction)
         } else {
@@ -188,7 +192,7 @@ impl Cpu {
 
         self.registers.program_counter = program_counter;
 
-        cycles
+        (cycles, extended_instruction)
     }
 
     fn execute(&mut self, ram: &mut Memory, instruction: Instruction) -> ExecutionStep {
@@ -228,10 +232,10 @@ impl Cpu {
             Instruction::Decrement16(target) => execute_decrement16(self, target),
             Instruction::Push(target) => execute_push(self, ram, target),
             Instruction::Pop(target) => execute_pop(self, ram, target),
-            Instruction::RotateLeft => execute_rotate_left(self),
-            Instruction::RotateLeftCarry => execute_rotate_left_carry(self),
-            Instruction::RotateRight => execute_rotate_right(self),
-            Instruction::RotateRightCarry => execute_rotate_right_carry(self),
+            Instruction::RotateLeftA => execute_rotate_left_a(self),
+            Instruction::RotateLeftCarryA => execute_rotate_left_carry_a(self),
+            Instruction::RotateRightA => execute_rotate_right_a(self),
+            Instruction::RotateRightCarryA => execute_rotate_right_carry_a(self),
             Instruction::DecimalAdjust => execute_decimal_adjust(self),
             Instruction::SetCarryFlag => execute_set_carry_flag(self),
             Instruction::Complement => execute_complement(self),
@@ -258,6 +262,12 @@ impl Cpu {
             Instruction::AddSP => execute_add_sp(self, ram),
             Instruction::LoadSPHL => execute_load_sp_hl(self),
             Instruction::LoadHLSP => execute_load_hl_sp(self, ram),
+
+            //Extended
+            Instruction::RotateLeft(target) => execute_rotate_left(self, ram, target),
+            Instruction::RotateLeftCarry(target) => execute_rotate_left_carry(self, ram, target),
+            Instruction::RotateRight(target) => execute_rotate_right(self, ram, target),
+            Instruction::RotateRightCarry(target) => execute_rotate_right_carry(self, ram, target),
         }
     }
 
@@ -324,6 +334,48 @@ fn execute_arithmetic(
             function(cpu, target, immediate)
         }
     }
+}
+
+fn execute_byte_arithmetic(
+    cpu: &mut Cpu,
+    ram: &mut Memory,
+    target: &ByteArithmeticTarget,
+    function: fn(cpu: &mut Cpu, value: u8) -> u8,
+) -> ExecutionStep {
+    let register_a = cpu.registers.a;
+    let register_hl = cpu.registers.get_hl();
+
+    let hl_value = ram.read(register_hl);
+
+    let new_value = match target {
+        ByteArithmeticTarget::A => function(cpu, register_a),
+        ByteArithmeticTarget::B => function(cpu, cpu.registers.b),
+        ByteArithmeticTarget::C => function(cpu, cpu.registers.c),
+        ByteArithmeticTarget::D => function(cpu, cpu.registers.d),
+        ByteArithmeticTarget::E => function(cpu, cpu.registers.e),
+        ByteArithmeticTarget::H => function(cpu, cpu.registers.h),
+        ByteArithmeticTarget::L => function(cpu, cpu.registers.l),
+        ByteArithmeticTarget::HL => function(cpu, hl_value),
+    };
+
+    match target {
+        ByteArithmeticTarget::A => cpu.registers.a = new_value,
+        ByteArithmeticTarget::B => cpu.registers.b = new_value,
+        ByteArithmeticTarget::C => cpu.registers.c = new_value,
+        ByteArithmeticTarget::D => cpu.registers.d = new_value,
+        ByteArithmeticTarget::E => cpu.registers.e = new_value,
+        ByteArithmeticTarget::H => cpu.registers.h = new_value,
+        ByteArithmeticTarget::L => cpu.registers.l = new_value,
+        ByteArithmeticTarget::HL => ram.write(register_hl, new_value),
+    };
+
+    ExecutionStep::new(
+        cpu.registers.program_counter + 1,
+        match target {
+            ByteArithmeticTarget::HL => 4,
+            _ => 2,
+        },
+    )
 }
 
 fn execute_add(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
@@ -787,7 +839,7 @@ fn execute_decrement16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionSt
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
 }
 
-fn execute_rotate_left(cpu: &mut Cpu) -> ExecutionStep {
+fn execute_rotate_left_a(cpu: &mut Cpu) -> ExecutionStep {
     let value = cpu.registers.a;
     let new_value = value.rotate_left(1);
 
@@ -801,7 +853,7 @@ fn execute_rotate_left(cpu: &mut Cpu) -> ExecutionStep {
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
 }
 
-fn execute_rotate_left_carry(cpu: &mut Cpu) -> ExecutionStep {
+fn execute_rotate_left_carry_a(cpu: &mut Cpu) -> ExecutionStep {
     let value = cpu.registers.a;
     let new_value = (value << 1) | (cpu.registers.f.carry as u8);
 
@@ -815,7 +867,7 @@ fn execute_rotate_left_carry(cpu: &mut Cpu) -> ExecutionStep {
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
 }
 
-fn execute_rotate_right(cpu: &mut Cpu) -> ExecutionStep {
+fn execute_rotate_right_a(cpu: &mut Cpu) -> ExecutionStep {
     let value = cpu.registers.a;
     let new_value = value.rotate_right(1);
 
@@ -829,7 +881,7 @@ fn execute_rotate_right(cpu: &mut Cpu) -> ExecutionStep {
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
 }
 
-fn execute_rotate_right_carry(cpu: &mut Cpu) -> ExecutionStep {
+fn execute_rotate_right_carry_a(cpu: &mut Cpu) -> ExecutionStep {
     let value = cpu.registers.a;
     let new_value = (value >> 1) | (cpu.registers.f.carry as u8);
 
@@ -1003,7 +1055,12 @@ fn execute_restart(cpu: &mut Cpu, ram: &mut Memory, address: u8) -> ExecutionSte
 }
 
 fn execute_extended_opcode(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
-    todo!("Extended opcode");
+    ExecutionStep {
+        program_counter: cpu.registers.program_counter.wrapping_add(1),
+        cycles: 1,
+        next_is_extended_instruction: true,
+        state: ExecutionState::Running,
+    }
 }
 
 fn execute_load_h(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
@@ -1059,4 +1116,82 @@ fn execute_load_hl_sp(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
     cpu.registers.set_hl(cpu.registers.stack_pointer);
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
+}
+
+fn execute_rotate_left(
+    cpu: &mut Cpu,
+    ram: &mut Memory,
+    target: ByteArithmeticTarget,
+) -> ExecutionStep {
+    fn rotate_left(cpu: &mut Cpu, value: u8) -> u8 {
+        let new_value = value.rotate_left(1);
+
+        cpu.registers.f.zero = new_value == 0;
+        cpu.registers.f.subtract = false;
+        cpu.registers.f.half_carry = false;
+        cpu.registers.f.carry = (value & 0x80) != 0;
+
+        new_value
+    }
+
+    execute_byte_arithmetic(cpu, ram, &target, rotate_left)
+}
+
+fn execute_rotate_left_carry(
+    cpu: &mut Cpu,
+    ram: &mut Memory,
+    target: ByteArithmeticTarget,
+) -> ExecutionStep {
+    fn rotate_left_carry(cpu: &mut Cpu, value: u8) -> u8 {
+        let carry = cpu.registers.f.carry as u8;
+        let new_value = value << 1 | carry;
+
+        cpu.registers.f.zero = new_value == 0;
+        cpu.registers.f.subtract = false;
+        cpu.registers.f.half_carry = false;
+        cpu.registers.f.carry = (value & 0x80) != 0;
+
+        new_value
+    }
+
+    execute_byte_arithmetic(cpu, ram, &target, rotate_left_carry)
+}
+
+fn execute_rotate_right(
+    cpu: &mut Cpu,
+    ram: &mut Memory,
+    target: ByteArithmeticTarget,
+) -> ExecutionStep {
+    fn rotate_right(cpu: &mut Cpu, value: u8) -> u8 {
+        let new_value = value.rotate_right(1);
+
+        cpu.registers.f.zero = new_value == 0;
+        cpu.registers.f.subtract = false;
+        cpu.registers.f.half_carry = false;
+        cpu.registers.f.carry = (value & 0x01) != 0;
+
+        new_value
+    }
+
+    execute_byte_arithmetic(cpu, ram, &target, rotate_right)
+}
+
+fn execute_rotate_right_carry(
+    cpu: &mut Cpu,
+    ram: &mut Memory,
+    target: ByteArithmeticTarget,
+) -> ExecutionStep {
+    fn rotate_left_carry(cpu: &mut Cpu, value: u8) -> u8 {
+        let carry = cpu.registers.f.carry as u8;
+        let new_value = (value >> 1) | (carry << 7);
+
+        cpu.registers.f.zero = new_value == 0;
+        cpu.registers.f.subtract = false;
+        cpu.registers.f.half_carry = false;
+        cpu.registers.f.carry = (value & 0x01) != 0;
+
+        new_value
+    }
+
+    execute_byte_arithmetic(cpu, ram, &target, rotate_left_carry)
 }
