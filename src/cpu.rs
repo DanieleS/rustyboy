@@ -279,6 +279,12 @@ impl Cpu {
             Instruction::TestBit(bit_target, target) => {
                 execute_test_bit(self, ram, bit_target, target)
             }
+            Instruction::ResetBit(bit_target, target) => {
+                execute_reset_bit(self, ram, bit_target, target)
+            }
+            Instruction::SetBit(bit_target, target) => {
+                execute_set_bit(self, ram, bit_target, target)
+            }
         }
     }
 
@@ -1077,7 +1083,7 @@ fn execute_restart(cpu: &mut Cpu, ram: &mut Memory, address: u8) -> ExecutionSte
 fn execute_extended_opcode(cpu: &mut Cpu) -> ExecutionStep {
     ExecutionStep {
         program_counter: cpu.registers.program_counter.wrapping_add(1),
-        cycles: 1,
+        cycles: 0,
         next_is_extended_instruction: true,
         state: ExecutionState::Running,
     }
@@ -1312,5 +1318,71 @@ fn execute_test_bit(
     cpu.registers.f.subtract = false;
     cpu.registers.f.half_carry = true;
 
-    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
+    ExecutionStep::new(
+        cpu.registers.program_counter.wrapping_add(1),
+        match target {
+            ByteArithmeticTarget::HL => 4,
+            _ => 2,
+        },
+    )
+}
+
+fn execute_reset_bit(
+    cpu: &mut Cpu,
+    ram: &mut Memory,
+    bit_target: BitOpTarget,
+    target: ByteArithmeticTarget,
+) -> ExecutionStep {
+    let value = read_byte_arithmetic_target(cpu, ram, &target);
+
+    let value = match bit_target {
+        BitOpTarget::Bit0 => value & 0b1111_1110,
+        BitOpTarget::Bit1 => value & 0b1111_1101,
+        BitOpTarget::Bit2 => value & 0b1111_1011,
+        BitOpTarget::Bit3 => value & 0b1111_0111,
+        BitOpTarget::Bit4 => value & 0b1110_1111,
+        BitOpTarget::Bit5 => value & 0b1101_1111,
+        BitOpTarget::Bit6 => value & 0b1011_1111,
+        BitOpTarget::Bit7 => value & 0b0111_1111,
+    };
+
+    write_byte_arithmetic_target(cpu, ram, &target, value);
+
+    ExecutionStep::new(
+        cpu.registers.program_counter.wrapping_add(1),
+        match target {
+            ByteArithmeticTarget::HL => 4,
+            _ => 2,
+        },
+    )
+}
+
+fn execute_set_bit(
+    cpu: &mut Cpu,
+    ram: &mut Memory,
+    bit_target: BitOpTarget,
+    target: ByteArithmeticTarget,
+) -> ExecutionStep {
+    let value = read_byte_arithmetic_target(cpu, ram, &target);
+
+    let value = match bit_target {
+        BitOpTarget::Bit0 => value | 0b0000_0001,
+        BitOpTarget::Bit1 => value | 0b0000_0010,
+        BitOpTarget::Bit2 => value | 0b0000_0100,
+        BitOpTarget::Bit3 => value | 0b0000_1000,
+        BitOpTarget::Bit4 => value | 0b0001_0000,
+        BitOpTarget::Bit5 => value | 0b0010_0000,
+        BitOpTarget::Bit6 => value | 0b0100_0000,
+        BitOpTarget::Bit7 => value | 0b1000_0000,
+    };
+
+    write_byte_arithmetic_target(cpu, ram, &target, value);
+
+    ExecutionStep::new(
+        cpu.registers.program_counter.wrapping_add(1),
+        match target {
+            ByteArithmeticTarget::HL => 4,
+            _ => 2,
+        },
+    )
 }
