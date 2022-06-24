@@ -7,6 +7,7 @@ use crate::hadrware::Hardware;
 mod cartridge;
 mod cpu;
 mod hadrware;
+mod joypad;
 mod lcd;
 mod memory;
 mod ppu;

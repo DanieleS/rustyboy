@@ -1,4 +1,4 @@
-use crate::{cartridge::Cartridge, cpu::Cpu, memory::Memory, ppu::Ppu};
+use crate::{cartridge::Cartridge, cpu::Cpu, joypad::update_keys_status, memory::Memory, ppu::Ppu};
 
 pub struct Hardware {
     cpu: Cpu,
@@ -18,13 +18,15 @@ impl Hardware {
     }
 
     pub fn run(&mut self) {
-        let debug_breakpoint: u16 = 0x29b2;
+        let debug_breakpoint: u16 = 0xffba;
 
         let mut next_is_extended_instruction = false;
 
         loop {
             let (elapsed_cycles, next_is_extended) =
                 self.cpu.step(&mut self.ram, next_is_extended_instruction);
+
+            update_keys_status(&mut self.ram);
 
             next_is_extended_instruction = next_is_extended;
 
