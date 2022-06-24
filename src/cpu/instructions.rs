@@ -59,6 +59,8 @@ pub enum Instruction {
     ShiftLeftArithmetic(ByteArithmeticTarget),
     ShiftRightArithmetic(ByteArithmeticTarget),
     Swap(ByteArithmeticTarget),
+    ShiftRightLogic(ByteArithmeticTarget),
+    TestBit(BitOpTarget, ByteArithmeticTarget),
 }
 
 impl Instruction {
@@ -395,6 +397,270 @@ impl Instruction {
             0x35 => Some(Instruction::Swap(ByteArithmeticTarget::L)),
             0x36 => Some(Instruction::Swap(ByteArithmeticTarget::HL)),
             0x37 => Some(Instruction::Swap(ByteArithmeticTarget::A)),
+            0x38 => Some(Instruction::ShiftRightLogic(ByteArithmeticTarget::B)),
+            0x39 => Some(Instruction::ShiftRightLogic(ByteArithmeticTarget::C)),
+            0x3a => Some(Instruction::ShiftRightLogic(ByteArithmeticTarget::D)),
+            0x3b => Some(Instruction::ShiftRightLogic(ByteArithmeticTarget::E)),
+            0x3c => Some(Instruction::ShiftRightLogic(ByteArithmeticTarget::H)),
+            0x3d => Some(Instruction::ShiftRightLogic(ByteArithmeticTarget::L)),
+            0x3e => Some(Instruction::ShiftRightLogic(ByteArithmeticTarget::HL)),
+            0x3f => Some(Instruction::ShiftRightLogic(ByteArithmeticTarget::A)),
+            0x40 => Some(Instruction::TestBit(
+                BitOpTarget::Bit0,
+                ByteArithmeticTarget::B,
+            )),
+            0x41 => Some(Instruction::TestBit(
+                BitOpTarget::Bit0,
+                ByteArithmeticTarget::C,
+            )),
+            0x42 => Some(Instruction::TestBit(
+                BitOpTarget::Bit0,
+                ByteArithmeticTarget::D,
+            )),
+            0x43 => Some(Instruction::TestBit(
+                BitOpTarget::Bit0,
+                ByteArithmeticTarget::E,
+            )),
+            0x44 => Some(Instruction::TestBit(
+                BitOpTarget::Bit0,
+                ByteArithmeticTarget::H,
+            )),
+            0x45 => Some(Instruction::TestBit(
+                BitOpTarget::Bit0,
+                ByteArithmeticTarget::L,
+            )),
+            0x46 => Some(Instruction::TestBit(
+                BitOpTarget::Bit0,
+                ByteArithmeticTarget::HL,
+            )),
+            0x47 => Some(Instruction::TestBit(
+                BitOpTarget::Bit0,
+                ByteArithmeticTarget::A,
+            )),
+            0x48 => Some(Instruction::TestBit(
+                BitOpTarget::Bit1,
+                ByteArithmeticTarget::B,
+            )),
+            0x49 => Some(Instruction::TestBit(
+                BitOpTarget::Bit1,
+                ByteArithmeticTarget::C,
+            )),
+            0x4a => Some(Instruction::TestBit(
+                BitOpTarget::Bit1,
+                ByteArithmeticTarget::D,
+            )),
+            0x4b => Some(Instruction::TestBit(
+                BitOpTarget::Bit1,
+                ByteArithmeticTarget::E,
+            )),
+            0x4c => Some(Instruction::TestBit(
+                BitOpTarget::Bit1,
+                ByteArithmeticTarget::H,
+            )),
+            0x4d => Some(Instruction::TestBit(
+                BitOpTarget::Bit1,
+                ByteArithmeticTarget::L,
+            )),
+            0x4e => Some(Instruction::TestBit(
+                BitOpTarget::Bit1,
+                ByteArithmeticTarget::HL,
+            )),
+            0x4f => Some(Instruction::TestBit(
+                BitOpTarget::Bit1,
+                ByteArithmeticTarget::A,
+            )),
+            0x50 => Some(Instruction::TestBit(
+                BitOpTarget::Bit2,
+                ByteArithmeticTarget::B,
+            )),
+            0x51 => Some(Instruction::TestBit(
+                BitOpTarget::Bit2,
+                ByteArithmeticTarget::C,
+            )),
+            0x52 => Some(Instruction::TestBit(
+                BitOpTarget::Bit2,
+                ByteArithmeticTarget::D,
+            )),
+            0x53 => Some(Instruction::TestBit(
+                BitOpTarget::Bit2,
+                ByteArithmeticTarget::E,
+            )),
+            0x54 => Some(Instruction::TestBit(
+                BitOpTarget::Bit2,
+                ByteArithmeticTarget::H,
+            )),
+            0x55 => Some(Instruction::TestBit(
+                BitOpTarget::Bit2,
+                ByteArithmeticTarget::L,
+            )),
+            0x56 => Some(Instruction::TestBit(
+                BitOpTarget::Bit2,
+                ByteArithmeticTarget::HL,
+            )),
+            0x57 => Some(Instruction::TestBit(
+                BitOpTarget::Bit2,
+                ByteArithmeticTarget::A,
+            )),
+            0x58 => Some(Instruction::TestBit(
+                BitOpTarget::Bit3,
+                ByteArithmeticTarget::B,
+            )),
+            0x59 => Some(Instruction::TestBit(
+                BitOpTarget::Bit3,
+                ByteArithmeticTarget::C,
+            )),
+            0x5a => Some(Instruction::TestBit(
+                BitOpTarget::Bit3,
+                ByteArithmeticTarget::D,
+            )),
+            0x5b => Some(Instruction::TestBit(
+                BitOpTarget::Bit3,
+                ByteArithmeticTarget::E,
+            )),
+            0x5c => Some(Instruction::TestBit(
+                BitOpTarget::Bit3,
+                ByteArithmeticTarget::H,
+            )),
+            0x5d => Some(Instruction::TestBit(
+                BitOpTarget::Bit3,
+                ByteArithmeticTarget::L,
+            )),
+            0x5e => Some(Instruction::TestBit(
+                BitOpTarget::Bit3,
+                ByteArithmeticTarget::HL,
+            )),
+            0x5f => Some(Instruction::TestBit(
+                BitOpTarget::Bit3,
+                ByteArithmeticTarget::A,
+            )),
+            0x60 => Some(Instruction::TestBit(
+                BitOpTarget::Bit4,
+                ByteArithmeticTarget::B,
+            )),
+            0x61 => Some(Instruction::TestBit(
+                BitOpTarget::Bit4,
+                ByteArithmeticTarget::C,
+            )),
+            0x62 => Some(Instruction::TestBit(
+                BitOpTarget::Bit4,
+                ByteArithmeticTarget::D,
+            )),
+            0x63 => Some(Instruction::TestBit(
+                BitOpTarget::Bit4,
+                ByteArithmeticTarget::E,
+            )),
+            0x64 => Some(Instruction::TestBit(
+                BitOpTarget::Bit4,
+                ByteArithmeticTarget::H,
+            )),
+            0x65 => Some(Instruction::TestBit(
+                BitOpTarget::Bit4,
+                ByteArithmeticTarget::L,
+            )),
+            0x66 => Some(Instruction::TestBit(
+                BitOpTarget::Bit4,
+                ByteArithmeticTarget::HL,
+            )),
+            0x67 => Some(Instruction::TestBit(
+                BitOpTarget::Bit4,
+                ByteArithmeticTarget::A,
+            )),
+            0x68 => Some(Instruction::TestBit(
+                BitOpTarget::Bit5,
+                ByteArithmeticTarget::B,
+            )),
+            0x69 => Some(Instruction::TestBit(
+                BitOpTarget::Bit5,
+                ByteArithmeticTarget::C,
+            )),
+            0x6a => Some(Instruction::TestBit(
+                BitOpTarget::Bit5,
+                ByteArithmeticTarget::D,
+            )),
+            0x6b => Some(Instruction::TestBit(
+                BitOpTarget::Bit5,
+                ByteArithmeticTarget::E,
+            )),
+            0x6c => Some(Instruction::TestBit(
+                BitOpTarget::Bit5,
+                ByteArithmeticTarget::H,
+            )),
+            0x6d => Some(Instruction::TestBit(
+                BitOpTarget::Bit5,
+                ByteArithmeticTarget::L,
+            )),
+            0x6e => Some(Instruction::TestBit(
+                BitOpTarget::Bit5,
+                ByteArithmeticTarget::HL,
+            )),
+            0x6f => Some(Instruction::TestBit(
+                BitOpTarget::Bit5,
+                ByteArithmeticTarget::A,
+            )),
+            0x70 => Some(Instruction::TestBit(
+                BitOpTarget::Bit0,
+                ByteArithmeticTarget::B,
+            )),
+            0x71 => Some(Instruction::TestBit(
+                BitOpTarget::Bit6,
+                ByteArithmeticTarget::C,
+            )),
+            0x72 => Some(Instruction::TestBit(
+                BitOpTarget::Bit6,
+                ByteArithmeticTarget::D,
+            )),
+            0x73 => Some(Instruction::TestBit(
+                BitOpTarget::Bit6,
+                ByteArithmeticTarget::E,
+            )),
+            0x74 => Some(Instruction::TestBit(
+                BitOpTarget::Bit6,
+                ByteArithmeticTarget::H,
+            )),
+            0x75 => Some(Instruction::TestBit(
+                BitOpTarget::Bit6,
+                ByteArithmeticTarget::L,
+            )),
+            0x76 => Some(Instruction::TestBit(
+                BitOpTarget::Bit6,
+                ByteArithmeticTarget::HL,
+            )),
+            0x77 => Some(Instruction::TestBit(
+                BitOpTarget::Bit6,
+                ByteArithmeticTarget::A,
+            )),
+            0x78 => Some(Instruction::TestBit(
+                BitOpTarget::Bit7,
+                ByteArithmeticTarget::B,
+            )),
+            0x79 => Some(Instruction::TestBit(
+                BitOpTarget::Bit7,
+                ByteArithmeticTarget::C,
+            )),
+            0x7a => Some(Instruction::TestBit(
+                BitOpTarget::Bit7,
+                ByteArithmeticTarget::D,
+            )),
+            0x7b => Some(Instruction::TestBit(
+                BitOpTarget::Bit7,
+                ByteArithmeticTarget::E,
+            )),
+            0x7c => Some(Instruction::TestBit(
+                BitOpTarget::Bit7,
+                ByteArithmeticTarget::H,
+            )),
+            0x7d => Some(Instruction::TestBit(
+                BitOpTarget::Bit7,
+                ByteArithmeticTarget::L,
+            )),
+            0x7e => Some(Instruction::TestBit(
+                BitOpTarget::Bit7,
+                ByteArithmeticTarget::HL,
+            )),
+            0x7f => Some(Instruction::TestBit(
+                BitOpTarget::Bit7,
+                ByteArithmeticTarget::A,
+            )),
             target => {
                 println!("{:02x}", target);
                 todo!("Not implemented")
@@ -473,4 +739,15 @@ pub enum PushPopTarget {
     DE,
     HL,
     AF,
+}
+
+pub enum BitOpTarget {
+    Bit0,
+    Bit1,
+    Bit2,
+    Bit3,
+    Bit4,
+    Bit5,
+    Bit6,
+    Bit7,
 }
