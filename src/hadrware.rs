@@ -1,3 +1,4 @@
+use crate::cpu::interrupts::Interrupts;
 use crate::{cartridge::Cartridge, cpu::Cpu, joypad::update_keys_status, memory::Memory, ppu::Ppu};
 
 pub struct Hardware {
@@ -18,7 +19,7 @@ impl Hardware {
     }
 
     pub fn run(&mut self) {
-        let debug_breakpoint: u16 = 0xffba;
+        let debug_breakpoint: u16 = 0x2bc;
 
         let mut next_is_extended_instruction = false;
 
@@ -31,7 +32,9 @@ impl Hardware {
             next_is_extended_instruction = next_is_extended;
 
             for _ in 0..(elapsed_cycles * 4) {
-                self.ppu.step();
+                if let Some(interrupt) = self.ppu.step() {
+                    Interrupts::dispatch_interrupt(interrupt, &mut self.ram);
+                }
             }
 
             self.ppu.update_memory(&mut self.ram);

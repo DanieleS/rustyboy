@@ -78,9 +78,8 @@ impl std::convert::From<&LcdControl> for u8 {
         if value.background_tile_map_area {
             result |= 0x08;
         }
-        match value.object_size {
-            ObjectSize::Size8x16 => result |= 0x04,
-            _ => (),
+        if let ObjectSize::Size8x16 = value.object_size {
+            result |= 0x04;
         }
         if value.object_enable {
             result |= 0x02;

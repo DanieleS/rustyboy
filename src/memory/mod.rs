@@ -1,16 +1,16 @@
 use crate::utils::zipper::Zipper;
 
-trait Memo {
+trait MemoryBank {
     fn read(&self, address: u16) -> u8;
     fn write(&mut self, address: u16, value: u8);
 }
 
-pub struct MemoryBank<const C: usize> {
+pub struct GeneralPourposeMemoryBank<const C: usize> {
     data: [u8; C],
     offset: usize,
 }
 
-impl<const C: usize> std::fmt::Debug for MemoryBank<C> {
+impl<const C: usize> std::fmt::Debug for GeneralPourposeMemoryBank<C> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let rows = self.data.chunks(16);
         for (i, row) in rows.enumerate() {
@@ -26,20 +26,20 @@ impl<const C: usize> std::fmt::Debug for MemoryBank<C> {
     }
 }
 
-impl<const C: usize> MemoryBank<C> {
+impl<const C: usize> GeneralPourposeMemoryBank<C> {
     fn new(offset: usize) -> Self {
-        MemoryBank {
+        GeneralPourposeMemoryBank {
             data: [0; C],
             offset,
         }
     }
 
     fn new_from_data(data: [u8; C], offset: usize) -> Self {
-        MemoryBank { data, offset }
+        GeneralPourposeMemoryBank { data, offset }
     }
 }
 
-impl<const C: usize> Memo for MemoryBank<C> {
+impl<const C: usize> MemoryBank for GeneralPourposeMemoryBank<C> {
     fn read(&self, address: u16) -> u8 {
         self.data[address as usize - self.offset]
     }
@@ -49,7 +49,41 @@ impl<const C: usize> Memo for MemoryBank<C> {
     }
 }
 
-impl Memo for u8 {
+pub struct IOMemoryBank {
+    memory_bank: GeneralPourposeMemoryBank<0x80>,
+}
+
+impl IOMemoryBank {
+    fn new() -> Self {
+        IOMemoryBank {
+            memory_bank: GeneralPourposeMemoryBank::new(0xFF00),
+        }
+    }
+}
+
+impl std::fmt::Debug for IOMemoryBank {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        self.memory_bank.fmt(f)
+    }
+}
+
+impl MemoryBank for IOMemoryBank {
+    fn read(&self, address: u16) -> u8 {
+        self.memory_bank.read(address)
+    }
+
+    fn write(&mut self, address: u16, value: u8) {
+        match address {
+            0xFF46 => {
+                println!("DMA transfer from {:02X}", value);
+                self.memory_bank.write(0xFF46, value);
+            }
+            _ => self.memory_bank.write(address, value),
+        }
+    }
+}
+
+impl MemoryBank for u8 {
     fn read(&self, _address: u16) -> u8 {
         *self
     }
@@ -60,30 +94,30 @@ impl Memo for u8 {
 }
 
 pub struct Memory {
-    cartridge_bank_0: MemoryBank<0x4000>,
-    cartridge_banks_1_n: Zipper<MemoryBank<0x4000>>,
-    vram: MemoryBank<0x2000>,
-    external_ram: Zipper<MemoryBank<0x2000>>,
-    work_ram: MemoryBank<0x1000>,
-    work_ram_1_n: Zipper<MemoryBank<0x1000>>,
-    oam: MemoryBank<0x100>,
-    pub io_registers: MemoryBank<0x80>,
-    hram: MemoryBank<0x7f>,
+    cartridge_bank_0: GeneralPourposeMemoryBank<0x4000>,
+    cartridge_banks_1_n: Zipper<GeneralPourposeMemoryBank<0x4000>>,
+    vram: GeneralPourposeMemoryBank<0x2000>,
+    external_ram: Zipper<GeneralPourposeMemoryBank<0x2000>>,
+    work_ram: GeneralPourposeMemoryBank<0x1000>,
+    work_ram_1_n: Zipper<GeneralPourposeMemoryBank<0x1000>>,
+    oam: GeneralPourposeMemoryBank<0x100>,
+    pub io_registers: IOMemoryBank,
+    hram: GeneralPourposeMemoryBank<0x7f>,
     interrupt_enable: u8,
 }
 
 impl Memory {
     pub fn new() -> Memory {
         Memory {
-            cartridge_bank_0: MemoryBank::new(0x0),
-            cartridge_banks_1_n: Zipper::new(vec![MemoryBank::new(0x4000)]).unwrap(),
-            vram: MemoryBank::new(0x8000),
-            external_ram: Zipper::new(vec![MemoryBank::new(0xa000)]).unwrap(),
-            work_ram: MemoryBank::new(0xC000),
-            work_ram_1_n: Zipper::new(vec![MemoryBank::new(0xd000)]).unwrap(),
-            oam: MemoryBank::new(0xFE00),
-            io_registers: MemoryBank::new(0xFF00),
-            hram: MemoryBank::new(0xFF80),
+            cartridge_bank_0: GeneralPourposeMemoryBank::new(0x0),
+            cartridge_banks_1_n: Zipper::new(vec![GeneralPourposeMemoryBank::new(0x4000)]).unwrap(),
+            vram: GeneralPourposeMemoryBank::new(0x8000),
+            external_ram: Zipper::new(vec![GeneralPourposeMemoryBank::new(0xa000)]).unwrap(),
+            work_ram: GeneralPourposeMemoryBank::new(0xC000),
+            work_ram_1_n: Zipper::new(vec![GeneralPourposeMemoryBank::new(0xd000)]).unwrap(),
+            oam: GeneralPourposeMemoryBank::new(0xFE00),
+            io_registers: IOMemoryBank::new(),
+            hram: GeneralPourposeMemoryBank::new(0xFF80),
             interrupt_enable: 0,
         }
     }

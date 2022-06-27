@@ -5,7 +5,7 @@ pub struct Zipper<T> {
 
 impl<T> Zipper<T> {
     pub fn new(items: Vec<T>) -> Option<Self> {
-        if items.len() > 0 {
+        if !items.is_empty() {
             Some(Zipper { items, index: 0 })
         } else {
             None

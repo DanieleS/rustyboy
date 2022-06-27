@@ -1,15 +1,16 @@
 mod instructions;
+pub mod interrupts;
 
 use std::fmt::{Display, Formatter};
 
+use self::instructions::{BitOpTarget, ByteArithmeticTarget, LoadTarget16, PushPopTarget};
 use crate::memory::Memory;
 use crate::utils::int::test_add_carry_bit;
 use instructions::{
     ArithmeticTarget, ArithmeticTarget16, Instruction, JumpCondition, LoadTarget,
     RamAddressRegistry,
 };
-
-use self::instructions::{BitOpTarget, ByteArithmeticTarget, LoadTarget16, PushPopTarget};
+use interrupts::Interrupts;
 
 #[derive(Debug)]
 enum ExecutionState {
@@ -177,6 +178,19 @@ impl Cpu {
     }
 
     pub fn step(&mut self, ram: &mut Memory, is_extended_instruction: bool) -> (u8, bool) {
+        let interrupts = Interrupts::get_interrupts(ram);
+
+        if let Some(ExecutionStep {
+            program_counter,
+            cycles,
+            next_is_extended_instruction,
+            state: _,
+        }) = execute_interrupts(self, ram, &interrupts)
+        {
+            self.registers.program_counter = program_counter;
+            return (cycles, next_is_extended_instruction);
+        }
+
         let opcode = ram.read(self.registers.program_counter);
         let instruction = Instruction::from_byte(opcode, is_extended_instruction);
         let ExecutionStep {
@@ -302,10 +316,10 @@ impl Cpu {
 
 impl Display for Cpu {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "Cpu {{\n")?;
-        write!(f, "  registers: {},\n", self.registers)?;
-        write!(f, "  ime: {}\n", self.ime)?;
-        write!(f, "}}")
+        writeln!(f, "Cpu {{")?;
+        writeln!(f, "  registers: {},", self.registers)?;
+        writeln!(f, "  ime: {}", self.ime)?;
+        writeln!(f, "}}")
     }
 }
 
@@ -413,7 +427,7 @@ fn execute_add(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> Exe
         cpu.registers.f.half_carry = (value & 0x0F) + (cpu.registers.a & 0x0F) > 0x0F;
         cpu.registers.a = result;
 
-        get_arictmetic_execution_step(&cpu.registers.program_counter, &target)
+        get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
     execute_arithmetic(cpu, ram, &target, add)
@@ -433,7 +447,7 @@ fn execute_add_with_carry(
         cpu.registers.f.half_carry = (cpu.registers.a & 0xf) + (value & 0xf) + carry > 0xf;
         cpu.registers.a = result;
 
-        get_arictmetic_execution_step(&cpu.registers.program_counter, &target)
+        get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
     execute_arithmetic(cpu, ram, &target, add)
@@ -448,7 +462,7 @@ fn execute_subtract(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -
         cpu.registers.f.half_carry = (value & 0x0F) - (cpu.registers.a & 0x0F) > 0x0F;
         cpu.registers.a = result;
 
-        get_arictmetic_execution_step(&cpu.registers.program_counter, &target)
+        get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
     execute_arithmetic(cpu, ram, &target, subtract)
@@ -472,7 +486,7 @@ fn execute_subtract_with_carry(
             != 0;
         cpu.registers.a = result;
 
-        get_arictmetic_execution_step(&cpu.registers.program_counter, &target)
+        get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
     execute_arithmetic(cpu, ram, &target, subtract)
@@ -487,7 +501,7 @@ fn execute_and(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> Exe
         cpu.registers.f.half_carry = true;
         cpu.registers.a = result;
 
-        get_arictmetic_execution_step(&cpu.registers.program_counter, &target)
+        get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
     execute_arithmetic(cpu, ram, &target, and)
@@ -502,7 +516,7 @@ fn execute_or(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> Exec
         cpu.registers.f.half_carry = false;
         cpu.registers.a = result;
 
-        get_arictmetic_execution_step(&cpu.registers.program_counter, &target)
+        get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
     execute_arithmetic(cpu, ram, &target, or)
@@ -517,7 +531,7 @@ fn execute_xor(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> Exe
         cpu.registers.f.half_carry = false;
         cpu.registers.a = result;
 
-        get_arictmetic_execution_step(&cpu.registers.program_counter, &target)
+        get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
     execute_arithmetic(cpu, ram, &target, xor)
@@ -532,7 +546,7 @@ fn execute_cp(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> Exec
         cpu.registers.f.half_carry =
             (cpu.registers.a & 0x0F).wrapping_sub(value & 0xf) & (0xf + 1) != 0;
 
-        get_arictmetic_execution_step(&cpu.registers.program_counter, &target)
+        get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
     execute_arithmetic(cpu, ram, &target, cp)
@@ -845,7 +859,6 @@ fn execute_increment16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionSt
         ArithmeticTarget16::SP => {
             cpu.registers.stack_pointer = cpu.registers.stack_pointer.wrapping_add(1)
         }
-        _ => (),
     };
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
@@ -859,7 +872,6 @@ fn execute_decrement16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionSt
         ArithmeticTarget16::SP => {
             cpu.registers.stack_pointer = cpu.registers.stack_pointer.wrapping_sub(1)
         }
-        _ => (),
     };
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
@@ -1385,4 +1397,36 @@ fn execute_set_bit(
             _ => 2,
         },
     )
+}
+
+fn execute_interrupts(
+    cpu: &mut Cpu,
+    ram: &mut Memory,
+    interrupts: &Interrupts,
+) -> Option<ExecutionStep> {
+    if !cpu.ime {
+        return None;
+    }
+
+    let target = if interrupts.vblank.is_active() {
+        Some(0x40)
+    } else if interrupts.lcd_stat.is_active() {
+        Some(0x48)
+    } else if interrupts.timer.is_active() {
+        Some(0x50)
+    } else if interrupts.serial.is_active() {
+        Some(0x58)
+    } else if interrupts.joypad.is_active() {
+        Some(0x60)
+    } else {
+        None
+    };
+
+    cpu.registers.stack_pointer = cpu.registers.stack_pointer.wrapping_sub(2);
+    ram.write16(cpu.registers.stack_pointer, cpu.registers.program_counter);
+
+    target.map(|target| {
+        cpu.ime = false;
+        ExecutionStep::new(target, 3)
+    })
 }

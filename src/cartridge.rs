@@ -31,7 +31,7 @@ impl Cartridge {
     }
 
     fn parse_title(data: &[u8]) -> Result<String> {
-        let title_range = if Cartridge::is_new_cartridge(&data) {
+        let title_range = if Cartridge::is_new_cartridge(data) {
             0x134..0x13f
         } else {
             0x134..0x13c
