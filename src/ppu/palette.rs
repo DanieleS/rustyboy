@@ -55,4 +55,29 @@ impl Palette {
             palette_type,
         }
     }
+
+    pub fn color_from_bits(&self, first_bit: bool, last_bit: bool) -> &Color {
+        let color = match (first_bit, last_bit) {
+            (true, true) => 0b11,
+            (true, false) => 0b10,
+            (false, true) => 0b01,
+            (false, false) => 0b00,
+        };
+
+        &self.colors[color as usize]
+    }
+}
+
+impl std::default::Default for Palette {
+    fn default() -> Self {
+        Palette {
+            colors: [
+                Color::White,
+                Color::LightGray,
+                Color::DarkGray,
+                Color::Black,
+            ],
+            palette_type: PaletteType::Background,
+        }
+    }
 }
