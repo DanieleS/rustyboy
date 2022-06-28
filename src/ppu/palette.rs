@@ -1,4 +1,10 @@
-#[derive(Debug)]
+use crate::memory::Memory;
+
+const BG_PALETTE_ADDRESS: u16 = 0xff47;
+const OBP0_PALETTE_ADDRESS: u16 = 0xff48;
+const OBP1_PALETTE_ADDRESS: u16 = 0xff49;
+
+#[derive(Debug, Clone, Copy)]
 pub enum Color {
     White = 0,
     LightGray = 1,
@@ -54,6 +60,21 @@ impl Palette {
             colors,
             palette_type,
         }
+    }
+
+    pub fn background(ram: &Memory) -> Palette {
+        let value = ram.read(BG_PALETTE_ADDRESS);
+        Palette::from_u8(value, PaletteType::Background)
+    }
+
+    pub fn obp0(ram: &Memory) -> Palette {
+        let value = ram.read(OBP0_PALETTE_ADDRESS);
+        Palette::from_u8(value, PaletteType::Sprite)
+    }
+
+    pub fn obp1(ram: &Memory) -> Palette {
+        let value = ram.read(OBP1_PALETTE_ADDRESS);
+        Palette::from_u8(value, PaletteType::Sprite)
     }
 
     pub fn color_from_bits(&self, first_bit: bool, last_bit: bool) -> &Color {

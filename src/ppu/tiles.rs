@@ -8,7 +8,7 @@ pub struct Tile {
 }
 
 pub struct TileWithColors<'a> {
-    pub pixels: [&'a Color; 64],
+    pixels: [&'a Color; 64],
 }
 
 impl Tile {
@@ -51,6 +51,12 @@ impl Tile {
         }
 
         TileWithColors { pixels }
+    }
+}
+
+impl<'a> TileWithColors<'a> {
+    pub fn get_color(&self, x: usize, y: usize) -> &'a Color {
+        &self.pixels[y * 8 + x]
     }
 }
 

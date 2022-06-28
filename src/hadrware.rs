@@ -35,7 +35,7 @@ impl Hardware {
             next_is_extended_instruction = next_is_extended;
 
             for _ in 0..(elapsed_cycles * 4) {
-                if let Some(interrupt) = self.ppu.step() {
+                if let Some(interrupt) = self.ppu.step(&self.ram) {
                     Interrupts::dispatch_interrupt(interrupt, &mut self.ram);
 
                     if let Interrupt::VBlank = interrupt {
@@ -49,10 +49,10 @@ impl Hardware {
 
             if
             /* self.cpu.registers.program_counter == debug_breakpoint */
-            frame_count == 300 {
+            frame_count == 30 {
                 println!("{}", self.cpu);
 
-                println!("{:?}", self.ram.vram);
+                // println!("{:?}", self.ram.vram);
 
                 self.cpu.step(&mut self.ram, next_is_extended_instruction);
                 println!("{}", self.cpu);
