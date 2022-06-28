@@ -3,6 +3,7 @@ use crate::memory::Memory;
 pub const INTERRUPT_ENABLED_ADDRESS: u16 = 0xffff;
 pub const INTERRUPT_FLAG_ADDRESS: u16 = 0xff0f;
 
+#[derive(Debug, Clone, Copy)]
 pub enum Interrupt {
     VBlank = 0x01,
     LCDStat = 0x02,
@@ -132,6 +133,26 @@ impl Interrupts {
 
         let (_, flag) = <(u8, u8)>::from(&mut interrupts);
         ram.write(INTERRUPT_ENABLED_ADDRESS, flag);
+    }
+
+    pub fn get_highest_priority_interrupt(&self) -> Option<Interrupt> {
+        let mut highest_priority = None;
+        if self.vblank.is_active() {
+            highest_priority = Some(Interrupt::VBlank);
+        }
+        if self.lcd_stat.is_active() {
+            highest_priority = Some(Interrupt::LCDStat);
+        }
+        if self.timer.is_active() {
+            highest_priority = Some(Interrupt::Timer);
+        }
+        if self.serial.is_active() {
+            highest_priority = Some(Interrupt::Serial);
+        }
+        if self.joypad.is_active() {
+            highest_priority = Some(Interrupt::Joypad);
+        }
+        highest_priority
     }
 
     pub fn ack_interrupt(&mut self, interrupt: Interrupt, ram: &mut Memory) {

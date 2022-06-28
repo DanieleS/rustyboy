@@ -19,7 +19,7 @@ impl Hardware {
     }
 
     pub fn run(&mut self) {
-        let debug_breakpoint: u16 = 0x2bc;
+        let debug_breakpoint: u16 = 0x37b;
 
         let mut next_is_extended_instruction = false;
 
@@ -37,11 +37,12 @@ impl Hardware {
                 }
             }
 
+            self.ppu.dma_transfer(&mut self.ram);
             self.ppu.update_memory(&mut self.ram);
 
             if self.cpu.registers.program_counter == debug_breakpoint {
                 println!("{}", self.cpu);
-                println!("{:?}", self.ram.io_registers);
+                println!("{:?}", self.ram.vram);
                 self.cpu.step(&mut self.ram, next_is_extended_instruction);
                 println!("{}", self.cpu);
                 break;

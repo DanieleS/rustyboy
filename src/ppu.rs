@@ -19,6 +19,7 @@ pub struct Ppu {
     pub mode: PpuMode,
     pub scanline: u8,
     pub dots: u16,
+    last_oam_transfer: u16,
 }
 
 impl Ppu {
@@ -27,6 +28,7 @@ impl Ppu {
             mode: PpuMode::HBlank,
             scanline: 0,
             dots: 0,
+            last_oam_transfer: 0,
         }
     }
 
@@ -83,6 +85,21 @@ impl Ppu {
     pub fn update_memory(&mut self, ram: &mut Memory) {
         ram.write(LY_ADDRESS, self.scanline);
         ram.write(LCD_STAT_ADDRESS, self.create_stat_byte(ram))
+    }
+
+    pub fn dma_transfer(&mut self, ram: &mut Memory) {
+        let mut address = ram.read(0xff46) as u16;
+
+        if self.last_oam_transfer != address {
+            address <<= 8;
+
+            for i in 0..0xa0 {
+                let byte = ram.read(address as u16 + i as u16);
+                ram.write(0xfe00 + i as u16, byte);
+            }
+
+            self.last_oam_transfer = address;
+        }
     }
 
     fn create_stat_byte(&self, ram: &Memory) -> u8 {

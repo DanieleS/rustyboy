@@ -10,7 +10,7 @@ use instructions::{
     ArithmeticTarget, ArithmeticTarget16, Instruction, JumpCondition, LoadTarget,
     RamAddressRegistry,
 };
-use interrupts::Interrupts;
+use interrupts::{Interrupt, Interrupts};
 
 #[derive(Debug)]
 enum ExecutionState {
@@ -178,14 +178,14 @@ impl Cpu {
     }
 
     pub fn step(&mut self, ram: &mut Memory, is_extended_instruction: bool) -> (u8, bool) {
-        let interrupts = Interrupts::get_interrupts(ram);
+        let mut interrupts = Interrupts::get_interrupts(ram);
 
         if let Some(ExecutionStep {
             program_counter,
             cycles,
             next_is_extended_instruction,
             state: _,
-        }) = execute_interrupts(self, ram, &interrupts)
+        }) = execute_interrupts(self, ram, &mut interrupts)
         {
             self.registers.program_counter = program_counter;
             return (cycles, next_is_extended_instruction);
@@ -539,10 +539,10 @@ fn execute_xor(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> Exe
 
 fn execute_cp(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
     fn cp(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep {
-        let (result, overflow) = value.overflowing_sub(cpu.registers.a);
+        let result = value.wrapping_sub(cpu.registers.a);
         cpu.registers.f.zero = result == 0;
         cpu.registers.f.subtract = true;
-        cpu.registers.f.carry = overflow;
+        cpu.registers.f.carry = (cpu.registers.a as u16) < (value as u16);
         cpu.registers.f.half_carry =
             (cpu.registers.a & 0x0F).wrapping_sub(value & 0xf) & (0xf + 1) != 0;
 
@@ -1037,7 +1037,7 @@ fn execute_pop(cpu: &mut Cpu, ram: &mut Memory, target: PushPopTarget) -> Execut
 
 fn execute_call(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
     let pc = cpu.registers.program_counter;
-    cpu.push(ram, pc);
+    cpu.push(ram, pc.wrapping_add(3));
 
     let address = ram.read16(cpu.registers.program_counter.wrapping_add(1));
 
@@ -1060,7 +1060,7 @@ fn execute_call_condition(
 
 fn execute_return(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
     let address = cpu.pop(ram);
-    cpu.registers.program_counter = address.wrapping_add(3);
+    cpu.registers.program_counter = address;
 
     ExecutionStep::new(cpu.registers.program_counter, 4)
 }
@@ -1087,7 +1087,7 @@ fn execute_return_and_enable_interrupts(cpu: &mut Cpu, ram: &mut Memory) -> Exec
 
 fn execute_restart(cpu: &mut Cpu, ram: &mut Memory, address: u8) -> ExecutionStep {
     let pc = cpu.registers.program_counter;
-    cpu.push(ram, pc);
+    cpu.push(ram, pc.wrapping_add(1));
 
     ExecutionStep::new(address as u16, 4)
 }
@@ -1402,31 +1402,32 @@ fn execute_set_bit(
 fn execute_interrupts(
     cpu: &mut Cpu,
     ram: &mut Memory,
-    interrupts: &Interrupts,
+    interrupts: &mut Interrupts,
 ) -> Option<ExecutionStep> {
     if !cpu.ime {
         return None;
     }
 
-    let target = if interrupts.vblank.is_active() {
-        Some(0x40)
-    } else if interrupts.lcd_stat.is_active() {
-        Some(0x48)
-    } else if interrupts.timer.is_active() {
-        Some(0x50)
-    } else if interrupts.serial.is_active() {
-        Some(0x58)
-    } else if interrupts.joypad.is_active() {
-        Some(0x60)
+    let interrupt = interrupts.get_highest_priority_interrupt();
+    let target = if let Some(i) = interrupt {
+        Some(match i {
+            Interrupt::VBlank => 0x40,
+            Interrupt::LCDStat => 0x48,
+            Interrupt::Timer => 0x50,
+            Interrupt::Serial => 0x58,
+            Interrupt::Joypad => 0x60,
+        })
     } else {
         None
     };
 
-    cpu.registers.stack_pointer = cpu.registers.stack_pointer.wrapping_sub(2);
-    ram.write16(cpu.registers.stack_pointer, cpu.registers.program_counter);
-
-    target.map(|target| {
+    target.zip(interrupt).map(|(target, interrupt)| {
         cpu.ime = false;
+
+        cpu.registers.stack_pointer = cpu.registers.stack_pointer.wrapping_sub(2);
+        ram.write16(cpu.registers.stack_pointer, cpu.registers.program_counter);
+
+        interrupts.ack_interrupt(interrupt, ram);
         ExecutionStep::new(target, 3)
     })
 }

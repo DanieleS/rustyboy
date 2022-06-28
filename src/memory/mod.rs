@@ -53,36 +53,6 @@ pub struct IOMemoryBank {
     memory_bank: GeneralPourposeMemoryBank<0x80>,
 }
 
-impl IOMemoryBank {
-    fn new() -> Self {
-        IOMemoryBank {
-            memory_bank: GeneralPourposeMemoryBank::new(0xFF00),
-        }
-    }
-}
-
-impl std::fmt::Debug for IOMemoryBank {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.memory_bank.fmt(f)
-    }
-}
-
-impl MemoryBank for IOMemoryBank {
-    fn read(&self, address: u16) -> u8 {
-        self.memory_bank.read(address)
-    }
-
-    fn write(&mut self, address: u16, value: u8) {
-        match address {
-            0xFF46 => {
-                println!("DMA transfer from {:02X}", value);
-                self.memory_bank.write(0xFF46, value);
-            }
-            _ => self.memory_bank.write(address, value),
-        }
-    }
-}
-
 impl MemoryBank for u8 {
     fn read(&self, _address: u16) -> u8 {
         *self
@@ -96,12 +66,12 @@ impl MemoryBank for u8 {
 pub struct Memory {
     cartridge_bank_0: GeneralPourposeMemoryBank<0x4000>,
     cartridge_banks_1_n: Zipper<GeneralPourposeMemoryBank<0x4000>>,
-    vram: GeneralPourposeMemoryBank<0x2000>,
+    pub vram: GeneralPourposeMemoryBank<0x2000>,
     external_ram: Zipper<GeneralPourposeMemoryBank<0x2000>>,
     work_ram: GeneralPourposeMemoryBank<0x1000>,
     work_ram_1_n: Zipper<GeneralPourposeMemoryBank<0x1000>>,
     oam: GeneralPourposeMemoryBank<0x100>,
-    pub io_registers: IOMemoryBank,
+    io_registers: GeneralPourposeMemoryBank<0x80>,
     hram: GeneralPourposeMemoryBank<0x7f>,
     interrupt_enable: u8,
 }
@@ -116,7 +86,7 @@ impl Memory {
             work_ram: GeneralPourposeMemoryBank::new(0xC000),
             work_ram_1_n: Zipper::new(vec![GeneralPourposeMemoryBank::new(0xd000)]).unwrap(),
             oam: GeneralPourposeMemoryBank::new(0xFE00),
-            io_registers: IOMemoryBank::new(),
+            io_registers: GeneralPourposeMemoryBank::new(0xFF00),
             hram: GeneralPourposeMemoryBank::new(0xFF80),
             interrupt_enable: 0,
         }
