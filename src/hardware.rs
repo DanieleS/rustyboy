@@ -26,7 +26,7 @@ impl Hardware {
         }
     }
 
-    pub fn run(&mut self) -> [Color; 256 * 256] {
+    pub fn run(&mut self) -> [Color; 160 * 144] {
         loop {
             let (elapsed_cycles, next_is_extended) = self
                 .cpu
@@ -36,13 +36,13 @@ impl Hardware {
 
             self.next_is_extended_instruction = next_is_extended;
 
-            let mut buffer: Option<[Color; 256 * 256]> = None;
+            let mut buffer: Option<[Color; 160 * 144]> = None;
             for _ in 0..(elapsed_cycles * 4) {
                 if let Some(interrupt) = self.ppu.step(&self.ram) {
                     Interrupts::dispatch_interrupt(interrupt, &mut self.ram);
 
                     if let Interrupt::VBlank = interrupt {
-                        buffer = Some(self.ppu.tile_map);
+                        buffer = Some(self.ppu.buffer);
                     }
                 }
             }
@@ -53,6 +53,16 @@ impl Hardware {
 
             self.ppu.dma_transfer(&mut self.ram);
             self.ppu.update_memory(&mut self.ram);
+
+            // DEBUG
+            let ffa6 = self.ram.read(0xffa6);
+
+            let IE = self.ram.read(0xffff);
+            let IF = self.ram.read(0xff0f);
+
+            if self.cpu.registers.program_counter == 0x40 {
+                // println!("{}", self.cpu);
+            }
         }
     }
 }

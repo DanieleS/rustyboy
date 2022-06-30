@@ -166,7 +166,7 @@ impl std::convert::From<u8> for FlagsRegister {
 
 pub struct Cpu {
     pub registers: Registers,
-    ime: bool,
+    pub ime: bool,
 }
 
 impl Cpu {
@@ -201,6 +201,7 @@ impl Cpu {
         } = if let Some(instruction) = instruction {
             self.execute(ram, instruction)
         } else {
+            println!("{}", self);
             panic!("Unknown opcode: {:X}", opcode);
         };
 

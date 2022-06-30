@@ -132,7 +132,7 @@ impl Interrupts {
         }
 
         let (_, flag) = <(u8, u8)>::from(&mut interrupts);
-        ram.write(INTERRUPT_ENABLED_ADDRESS, flag);
+        ram.write(INTERRUPT_FLAG_ADDRESS, flag);
     }
 
     pub fn get_highest_priority_interrupt(&self) -> Option<Interrupt> {
@@ -165,7 +165,7 @@ impl Interrupts {
         }
 
         let (_, flag) = <(u8, u8)>::from(self);
-        ram.write(INTERRUPT_ENABLED_ADDRESS, flag);
+        ram.write(INTERRUPT_FLAG_ADDRESS, flag);
     }
 
     pub fn is_empty(&self) -> bool {

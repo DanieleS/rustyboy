@@ -2,11 +2,11 @@ use anyhow::Result;
 use cartridge::Cartridge;
 use std::env;
 
-use crate::{hadrware::Hardware, utils::performance::mesure_performance};
+use crate::{hardware::Hardware, utils::performance::mesure_performance};
 
 mod cartridge;
 mod cpu;
-mod hadrware;
+mod hardware;
 mod joypad;
 mod lcd;
 mod memory;
@@ -51,7 +51,7 @@ fn create_window(mut hardware: Hardware) {
                 _ => return,
             },
             glutin::event::Event::NewEvents(_) => {
-                let buffer = mesure_performance("Hardware.run", || hardware.run());
+                let buffer = hardware.run();
 
                 renderer::render(&display, buffer);
                 return;

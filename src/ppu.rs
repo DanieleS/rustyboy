@@ -63,9 +63,7 @@ impl Ppu {
                     self.scanline += 1;
                     self.dots = 0;
                     if self.scanline == 154 {
-                        mesure_performance("Render background", || {
-                            self.render_background_map(ram);
-                        });
+                        self.render_background_map(ram);
                         self.scanline = 0;
                         self.mode = PpuMode::OamSearch;
                     }
@@ -133,7 +131,7 @@ impl Ppu {
         let x = (self.dots - 80) as u16;
         let y = self.scanline as u16;
 
-        self.buffer[x as usize + y as usize * 160] = self.tile_map[x as usize + y as usize * 160];
+        self.buffer[x as usize + y as usize * 160] = self.tile_map[x as usize + y as usize * 256];
     }
 
     fn render_background_map(&mut self, ram: &Memory) {

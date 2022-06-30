@@ -2,7 +2,7 @@ use glium::{texture::RawImage2d, uniforms::MagnifySamplerFilter, Display, Surfac
 
 use crate::ppu::palette::Color;
 
-pub fn render(display: &Display, buffer: [Color; 256 * 256]) {
+pub fn render(display: &Display, buffer: [Color; 160 * 144]) {
     let target = display.draw();
     // target.clear_color(1.0, 0.0, 0.0, 1.0);
 
@@ -11,7 +11,7 @@ pub fn render(display: &Display, buffer: [Color; 256 * 256]) {
         .flat_map(|color| color_to_bytes(color))
         .collect();
 
-    let image = RawImage2d::from_raw_rgb_reversed(&color_buffer, (256, 256));
+    let image = RawImage2d::from_raw_rgb_reversed(&color_buffer, (160, 144));
     let texture = glium::texture::Texture2d::new(display, image).unwrap();
 
     texture
