@@ -3,9 +3,10 @@ pub mod tiles;
 
 use crate::cpu::interrupts::Interrupt;
 use crate::memory::Memory;
+use crate::utils::performance::mesure_performance;
 
 use self::palette::{Color, Palette};
-use self::tiles::Tile;
+use self::tiles::{Tile, TileWithColors};
 
 const LCD_STAT_ADDRESS: u16 = 0xff41;
 const LY_ADDRESS: u16 = 0xff44;
@@ -22,9 +23,9 @@ pub struct Ppu {
     pub mode: PpuMode,
     pub scanline: u8,
     pub dots: u16,
+    pub buffer: [Color; 160 * 144],
+    pub tile_map: [Color; 256 * 256],
     last_oam_transfer: u16,
-    buffer: [Color; 160 * 144],
-    tile_map: [Color; 256 * 256],
 }
 
 impl Ppu {
@@ -47,7 +48,6 @@ impl Ppu {
                     self.dots = 0;
                     if self.scanline == 143 {
                         self.mode = PpuMode::VBlank;
-                        self.buffer = [Color::White; 160 * 144];
                         return Some(Interrupt::VBlank);
                     } else {
                         self.mode = PpuMode::OamSearch;
@@ -63,8 +63,9 @@ impl Ppu {
                     self.scanline += 1;
                     self.dots = 0;
                     if self.scanline == 154 {
-                        self.render_background_map(ram);
-                        print_array(&self.tile_map, 256);
+                        mesure_performance("Render background", || {
+                            self.render_background_map(ram);
+                        });
                         self.scanline = 0;
                         self.mode = PpuMode::OamSearch;
                     }
@@ -136,14 +137,17 @@ impl Ppu {
     }
 
     fn render_background_map(&mut self, ram: &Memory) {
-        let palette = Palette::background(ram);
         let mut tile_map = [Color::White; 256 * 256];
+
+        let palette = Palette::background(ram);
+
+        let tile_set = self.load_tile_set(ram, &palette);
+
         for y in 0..256 {
             for x in 0..256 {
                 let address = 0x9800 + (x / 8 + (y / 8) * 32);
                 let tile_index = ram.read(address);
-                let tile = Tile::read_from(ram, 0x8000 + tile_index as u16 * 16);
-                let tile = tile.to_tile_with_colors(&palette);
+                let tile = &tile_set[tile_index as usize];
 
                 let tile_x = x % 8;
                 let tile_y = y % 8;
@@ -155,12 +159,27 @@ impl Ppu {
 
         self.tile_map = tile_map;
     }
+
+    fn load_tile_set<'a>(&self, ram: &Memory, palette: &'a Palette) -> Vec<TileWithColors<'a>> {
+        let mut tile_set: Vec<Tile> = vec![];
+
+        for i in 0..256 {
+            let tile = Tile::read_from(ram, 0x8000 + i as u16 * 16);
+            tile_set.push(tile);
+        }
+
+        tile_set
+            .iter()
+            .map(|tile| tile.to_tile_with_colors(&palette))
+            .collect()
+    }
 }
 
-fn print_array<const C: usize, T>(array: &[T; C], width: usize)
+pub fn print_array<const C: usize, T>(array: &[T; C], width: usize)
 where
     T: std::fmt::Display,
 {
+    println!("{:?}", C);
     for i in 0..(C - 28672) {
         if i % width == 0 {
             println!();

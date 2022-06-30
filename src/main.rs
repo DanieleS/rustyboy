@@ -2,7 +2,7 @@ use anyhow::Result;
 use cartridge::Cartridge;
 use std::env;
 
-use crate::hadrware::Hardware;
+use crate::{hadrware::Hardware, utils::performance::mesure_performance};
 
 mod cartridge;
 mod cpu;
@@ -11,6 +11,7 @@ mod joypad;
 mod lcd;
 mod memory;
 mod ppu;
+mod renderer;
 mod utils;
 
 fn main() -> Result<()> {
@@ -18,8 +19,44 @@ fn main() -> Result<()> {
     let cartridge = Cartridge::from_path(rom_path)?;
     println!("Running {}", cartridge.title);
 
-    let mut hardware = Hardware::new(cartridge);
-    hardware.run();
+    let hardware = Hardware::new(cartridge);
+
+    create_window(hardware);
 
     Ok(())
+}
+
+fn create_window(mut hardware: Hardware) {
+    use glium::glutin;
+
+    let event_loop = glutin::event_loop::EventLoop::new();
+
+    let wb = glutin::window::WindowBuilder::new()
+        .with_inner_size(glutin::dpi::LogicalSize::new(256.0, 256.0))
+        .with_title("Rustyboy");
+
+    let cb = glutin::ContextBuilder::new();
+
+    let display = glium::Display::new(wb, cb, &event_loop).unwrap();
+
+    event_loop.run(move |ev, _, control_flow| {
+        *control_flow = glutin::event_loop::ControlFlow::Poll;
+
+        match ev {
+            glutin::event::Event::WindowEvent { event, .. } => match event {
+                glutin::event::WindowEvent::CloseRequested => {
+                    *control_flow = glutin::event_loop::ControlFlow::Exit;
+                    return;
+                }
+                _ => return,
+            },
+            glutin::event::Event::NewEvents(_) => {
+                let buffer = mesure_performance("Hardware.run", || hardware.run());
+
+                renderer::render(&display, buffer);
+                return;
+            }
+            _ => (),
+        }
+    });
 }
