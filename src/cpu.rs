@@ -16,7 +16,6 @@ use interrupts::{Interrupt, Interrupts};
 enum ExecutionState {
     Running,
     Halted,
-    InterruptDispatch,
 }
 
 #[derive(Debug)]
@@ -133,7 +132,7 @@ impl Display for Registers {
 
 #[derive(Debug)]
 pub struct FlagsRegister {
-    zero: bool,
+    pub zero: bool,
     subtract: bool,
     half_carry: bool,
     carry: bool,
@@ -167,6 +166,8 @@ impl std::convert::From<u8> for FlagsRegister {
 pub struct Cpu {
     pub registers: Registers,
     pub ime: bool,
+    pub last_pc: Vec<u16>,
+    pub halted: bool,
 }
 
 impl Cpu {
@@ -174,21 +175,27 @@ impl Cpu {
         Cpu {
             registers: Registers::new(),
             ime: false,
+            last_pc: vec![0; 10000],
+            halted: false,
         }
     }
 
-    pub fn step(&mut self, ram: &mut Memory, is_extended_instruction: bool) -> (u8, bool) {
+    pub fn step(&mut self, ram: &mut Memory, is_extended_instruction: bool) -> (u8, bool, bool) {
         let mut interrupts = Interrupts::get_interrupts(ram);
 
         if let Some(ExecutionStep {
             program_counter,
             cycles,
             next_is_extended_instruction,
-            state: _,
+            ..
         }) = execute_interrupts(self, ram, &mut interrupts)
         {
             self.registers.program_counter = program_counter;
-            return (cycles, next_is_extended_instruction);
+            return (cycles, next_is_extended_instruction, false);
+        }
+
+        if self.halted {
+            return (1, false, true);
         }
 
         let opcode = ram.read(self.registers.program_counter);
@@ -196,18 +203,27 @@ impl Cpu {
         let ExecutionStep {
             program_counter,
             cycles,
-            state: _,
+            state,
             next_is_extended_instruction: extended_instruction,
         } = if let Some(instruction) = instruction {
             self.execute(ram, instruction)
         } else {
-            println!("{}", self);
             panic!("Unknown opcode: {:X}", opcode);
         };
 
+        self.last_pc.remove(0);
+        self.last_pc.push(program_counter);
         self.registers.program_counter = program_counter;
 
-        (cycles, extended_instruction)
+        (
+            cycles,
+            extended_instruction,
+            if let ExecutionState::Halted = state {
+                true
+            } else {
+                false
+            },
+        )
     }
 
     fn execute(&mut self, ram: &mut Memory, instruction: Instruction) -> ExecutionStep {
@@ -320,6 +336,14 @@ impl Display for Cpu {
         writeln!(f, "Cpu {{")?;
         writeln!(f, "  registers: {},", self.registers)?;
         writeln!(f, "  ime: {}", self.ime)?;
+        writeln!(
+            f,
+            "  last_pc: {:?}",
+            self.last_pc
+                .iter()
+                .map(|n| format!("{:02X}", n))
+                .collect::<Vec<String>>()
+        )?;
         writeln!(f, "}}")
     }
 }
@@ -460,7 +484,8 @@ fn execute_subtract(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -
         cpu.registers.f.zero = result == 0;
         cpu.registers.f.subtract = true;
         cpu.registers.f.carry = overflow;
-        cpu.registers.f.half_carry = (value & 0x0F) - (cpu.registers.a & 0x0F) > 0x0F;
+        cpu.registers.f.half_carry =
+            (cpu.registers.a & 0xf).wrapping_sub(value & 0xf) & (0xf + 1) != 0;
         cpu.registers.a = result;
 
         get_arictmetic_execution_step(&cpu.registers.program_counter, target)
@@ -1007,7 +1032,11 @@ fn execute_enable_interrupts(cpu: &mut Cpu) -> ExecutionStep {
 }
 
 fn execute_halt(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
-    todo!("No idea what halt should do");
+    ExecutionStep::new_with_state(
+        cpu.registers.program_counter.wrapping_add(1),
+        1,
+        ExecutionState::Halted,
+    )
 }
 
 fn execute_push(cpu: &mut Cpu, ram: &mut Memory, target: PushPopTarget) -> ExecutionStep {
@@ -1406,6 +1435,7 @@ fn execute_interrupts(
     interrupts: &mut Interrupts,
 ) -> Option<ExecutionStep> {
     if !cpu.ime {
+        cpu.halted = false;
         return None;
     }
 

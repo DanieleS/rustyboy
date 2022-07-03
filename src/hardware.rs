@@ -1,3 +1,5 @@
+use core::panic;
+
 use crate::cpu::interrupts::{Interrupt, Interrupts};
 use crate::ppu::palette::Color;
 use crate::utils::performance::mesure_performance;
@@ -28,13 +30,13 @@ impl Hardware {
 
     pub fn run(&mut self) -> [Color; 160 * 144] {
         loop {
-            let (elapsed_cycles, next_is_extended) = self
+            let (elapsed_cycles, next_is_extended, _) = self
                 .cpu
                 .step(&mut self.ram, self.next_is_extended_instruction);
 
-            update_keys_status(&mut self.ram);
-
             self.next_is_extended_instruction = next_is_extended;
+
+            update_keys_status(&mut self.ram);
 
             let mut buffer: Option<[Color; 160 * 144]> = None;
             for _ in 0..(elapsed_cycles * 4) {
@@ -55,14 +57,6 @@ impl Hardware {
             self.ppu.update_memory(&mut self.ram);
 
             // DEBUG
-            let ffa6 = self.ram.read(0xffa6);
-
-            let IE = self.ram.read(0xffff);
-            let IF = self.ram.read(0xff0f);
-
-            if self.cpu.registers.program_counter == 0x40 {
-                // println!("{}", self.cpu);
-            }
         }
     }
 }
