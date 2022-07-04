@@ -1106,7 +1106,7 @@ fn execute_return_condition(
         let pc = execute_return(cpu, ram).program_counter;
         ExecutionStep::new(pc, 4)
     } else {
-        ExecutionStep::new(cpu.registers.program_counter.wrapping_add(3), 2)
+        ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
     }
 }
 
