@@ -1,10 +1,12 @@
 use std::ops::RangeInclusive;
 
+#[derive(Debug)]
 pub enum ObjectSize {
     Size8x8,
     Size8x16,
 }
 
+#[derive(Debug)]
 pub struct LcdControl {
     enabled: bool,
     window_tile_map_area: bool,
