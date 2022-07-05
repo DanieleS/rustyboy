@@ -32,7 +32,7 @@ fn create_window(mut hardware: Hardware) {
     let event_loop = glutin::event_loop::EventLoop::new();
 
     let wb = glutin::window::WindowBuilder::new()
-        .with_inner_size(glutin::dpi::LogicalSize::new(256.0, 256.0))
+        .with_inner_size(glutin::dpi::LogicalSize::new(320.0, 288.0))
         .with_title("Rustyboy");
 
     let cb = glutin::ContextBuilder::new();
