@@ -57,16 +57,6 @@ impl Hardware {
 
             self.ppu.dma_transfer(&mut self.ram);
             self.ppu.update_memory(&mut self.ram);
-
-            // DEBUG
-            if self.cpu.registers.program_counter == 0x4a9 {
-                println!("{}", self.cpu.registers);
-                println!(
-                    "FF81: {:02X} FFC5: {:02X}",
-                    self.ram.read(0xff81),
-                    self.ram.read(0xffc5)
-                );
-            }
         }
     }
 }

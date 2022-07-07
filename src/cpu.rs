@@ -1354,7 +1354,7 @@ fn execute_test_bit(
         BitOpTarget::Bit5 => value & 0x20,
         BitOpTarget::Bit6 => value & 0x40,
         BitOpTarget::Bit7 => value & 0x80,
-    } != 0;
+    } == 0;
 
     cpu.registers.f.zero = bit_is_zero;
     cpu.registers.f.subtract = false;
@@ -1463,9 +1463,9 @@ fn execute_interrupts(
     })
 }
 
-impl Drop for Cpu {
-    fn drop(&mut self) {
-        println!("CPU: {}", self.registers);
-        println!("CPU: {:?}", self.last_pc);
-    }
-}
+// impl Drop for Cpu {
+//     fn drop(&mut self) {
+//         println!("CPU: {}", self.registers);
+//         println!("CPU: {:?}", self.last_pc);
+//     }
+// }

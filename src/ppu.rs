@@ -168,10 +168,6 @@ impl Ppu {
             }
             .clone();
         }
-
-        if let Some(sprite) = sprites_in_row.get(0) {
-            // println!("Sprite X {}", ram.read(0xc001));
-        }
     }
 
     fn get_bg_tiles_in_row(
