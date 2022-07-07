@@ -35,13 +35,19 @@ impl std::fmt::Display for Color {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PaletteType {
     Background,
     Sprite,
 }
 
 #[derive(Debug)]
+pub enum SpritePalette {
+    OBP0,
+    OBP1,
+}
+
+#[derive(Debug, Clone)]
 pub struct Palette {
     colors: [Color; 4],
     palette_type: PaletteType,

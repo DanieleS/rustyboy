@@ -9,7 +9,7 @@ use crate::memory::Memory;
 use crate::utils::performance::mesure_performance;
 
 use self::palette::{Color, Palette};
-use self::tiles::{Tile, TileWithColors};
+use self::tiles::{Sprite, Tile, TileWithColors};
 
 const LCD_CONTROL_ADDRESS: u16 = 0xff40;
 const LCD_STAT_ADDRESS: u16 = 0xff41;
@@ -138,34 +138,94 @@ impl Ppu {
         let tile_map_area = *lcd_control.get_background_tile_map_area().start();
         let palette = Palette::background(ram);
 
-        let tile_map_row = ram.read_bytes(tile_map_area + 32 * (self.scanline as u16 / 8), 32);
-        let tiles_in_line: HashMap<_, _> =
-            Ppu::get_tiles_in_tile_map_row(&tile_map_row, ram, &palette);
+        let tile_map_row = ram.read_bytes::<32>(tile_map_area + 32 * (self.scanline as u16 / 8));
+        let tiles_in_line: HashMap<_, _> = Ppu::get_bg_tiles_in_row(&tile_map_row, ram, &palette);
+
+        let sprites_in_row = self.get_sprite_tiles_in_row(ram);
 
         for i in 0..160 {
             let tile_id = tile_map_row[i as usize / 8];
             let tile = tiles_in_line.get(&tile_id).unwrap();
-            let color = tile.get_color(i % 8, self.scanline as usize % 8);
-            self.buffer[i + self.scanline as usize * 160] = color.clone();
+            let bg_color = tile.get_color(i % 8, self.scanline as usize % 8);
+
+            let sprite_color = sprites_in_row
+                .iter()
+                .find(|&sprite| (sprite.x..sprite.x + 8).contains(&(i as u8 + 8)))
+                .map(|sprite| {
+                    sprite.get_color(
+                        (i - sprite.x as usize % 8) % 8,
+                        (self.scanline as usize - sprite.y as usize % 8) % 8,
+                    )
+                })
+                .and_then(|color| match color {
+                    Color::White => None,
+                    color => Some(color),
+                });
+
+            self.buffer[i + self.scanline as usize * 160] = match sprite_color {
+                Some(color) => color,
+                None => bg_color,
+            }
+            .clone();
+        }
+
+        if self.frames == 50 {
+            // println!("Scanline: {} - {:?}", self.scanline, sprites_in_row);
         }
     }
 
-    fn get_tiles_in_tile_map_row<'a>(
+    fn get_bg_tiles_in_row(
         tile_map_row: &[u8],
         ram: &Memory,
-        palette: &'a Palette,
-    ) -> HashMap<u8, TileWithColors<'a>> {
+        palette: &Palette,
+    ) -> HashMap<u8, TileWithColors> {
+        let lcd_control = LcdControl::from(ram.read(LCD_CONTROL_ADDRESS));
+
         tile_map_row
             .iter()
             .cloned()
             .collect::<HashSet<_>>()
             .iter()
             .map(|x| {
-                let tile = Tile::read_from(ram, 0x8000 + *x as u16 * 16);
+                let tile = Tile::read_from(ram, lcd_control.get_background_window_tile_address(*x));
                 let tile = tile.to_tile_with_colors(&palette);
                 (*x, tile)
             })
             .collect()
+    }
+
+    fn get_sprite_tiles_in_row(&self, ram: &Memory) -> Vec<Sprite> {
+        let lcd_control = LcdControl::from(ram.read(LCD_CONTROL_ADDRESS));
+
+        if !lcd_control.object_enable {
+            return vec![];
+        }
+
+        let sprites = self.get_sprites(ram);
+        let mut row_sprites = vec![];
+
+        for sprite in sprites {
+            if (sprite.y..sprite.y + 8).contains(&(self.scanline + 16)) {
+                row_sprites.push(sprite);
+            }
+        }
+
+        row_sprites
+    }
+
+    fn get_sprites(&self, ram: &Memory) -> Vec<Sprite> {
+        let mut sprites = vec![];
+        let obp0 = Palette::obp0(ram);
+        let obp1 = Palette::obp1(ram);
+
+        for i in (0xfe00..0xff00).step_by(4) {
+            let sprite_data = ram.read_bytes::<4>(i);
+            let tile = Tile::read_from(ram, 0x8000 + sprite_data[2] as u16 * 16);
+            let sprite = Sprite::new_from_bytes(sprite_data, tile, &obp0, &obp1);
+            sprites.push(sprite);
+        }
+
+        sprites
     }
 }
 

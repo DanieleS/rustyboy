@@ -11,11 +11,11 @@ pub struct LcdControl {
     enabled: bool,
     window_tile_map_area: bool,
     window_enabled: bool,
-    background_window_tile_data_area: bool,
+    pub background_window_tile_data_area: bool,
     background_tile_map_area: bool,
-    object_size: ObjectSize,
-    object_enable: bool,
-    background_enable: bool,
+    pub object_size: ObjectSize,
+    pub object_enable: bool,
+    pub background_enable: bool,
 }
 
 impl LcdControl {
@@ -32,6 +32,18 @@ impl LcdControl {
             0x8000..=0x8FFF
         } else {
             0x8800..=0x97FF
+        }
+    }
+
+    pub fn get_background_window_tile_address(&self, tile_index: u8) -> u16 {
+        if self.background_tile_map_area {
+            if (tile_index & 0x80) == 0 {
+                0x9000 + (tile_index as u16) * 16
+            } else {
+                0x9000 - (tile_index as u16) * 16
+            }
+        } else {
+            0x8000 + (tile_index as u16) * 16
         }
     }
 
@@ -90,5 +102,14 @@ impl std::convert::From<&LcdControl> for u8 {
             result |= 0x01;
         }
         result
+    }
+}
+
+impl ObjectSize {
+    pub fn get_height(&self) -> u8 {
+        match self {
+            ObjectSize::Size8x8 => 8,
+            ObjectSize::Size8x16 => 16,
+        }
     }
 }

@@ -62,11 +62,11 @@ impl MemoryBank for u8 {
 pub struct Memory {
     cartridge_bank_0: GeneralPourposeMemoryBank<0x4000>,
     cartridge_banks_1_n: Zipper<GeneralPourposeMemoryBank<0x4000>>,
-    pub vram: GeneralPourposeMemoryBank<0x2000>,
+    vram: GeneralPourposeMemoryBank<0x2000>,
     external_ram: Zipper<GeneralPourposeMemoryBank<0x2000>>,
     work_ram: GeneralPourposeMemoryBank<0x1000>,
     work_ram_1_n: Zipper<GeneralPourposeMemoryBank<0x1000>>,
-    oam: GeneralPourposeMemoryBank<0x100>,
+    pub oam: GeneralPourposeMemoryBank<0x100>,
     io_registers: GeneralPourposeMemoryBank<0x80>,
     hram: GeneralPourposeMemoryBank<0x7f>,
     interrupt_enable: u8,
@@ -121,10 +121,10 @@ impl Memory {
         self.read(address) as u16 | ((self.read(address + 1) as u16) << 8)
     }
 
-    pub fn read_bytes(&self, start_address: u16, count: usize) -> Vec<u8> {
-        let mut bytes = vec![];
-        for i in 0..count {
-            bytes.push(self.read(start_address + i as u16));
+    pub fn read_bytes<const C: usize>(&self, start_address: u16) -> [u8; C] {
+        let mut bytes = [0; C];
+        for i in 0..C {
+            bytes[i] = self.read(start_address + i as u16);
         }
         bytes
     }
