@@ -130,6 +130,10 @@ impl Memory {
     }
 
     pub fn write(&mut self, address: u16, value: u8) {
+        if address == 0xffc5 && value == 1 {
+            panic!();
+        }
+
         match address {
             0x0000..=0x3fff => self.cartridge_bank_0.write(address, value),
             0x4000..=0x7fff => self.cartridge_banks_1_n.get_mut().write(address, value),

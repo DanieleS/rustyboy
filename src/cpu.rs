@@ -1462,3 +1462,10 @@ fn execute_interrupts(
         ExecutionStep::new(target, 3)
     })
 }
+
+impl Drop for Cpu {
+    fn drop(&mut self) {
+        println!("CPU: {}", self.registers);
+        println!("CPU: {:?}", self.last_pc);
+    }
+}

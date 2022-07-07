@@ -169,8 +169,8 @@ impl Ppu {
             .clone();
         }
 
-        if self.frames == 50 {
-            // println!("Scanline: {} - {:?}", self.scanline, sprites_in_row);
+        if let Some(sprite) = sprites_in_row.get(0) {
+            // println!("Sprite X {}", ram.read(0xc001));
         }
     }
 
