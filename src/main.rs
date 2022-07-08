@@ -1,8 +1,10 @@
+use crate::joypad::JoypadKey;
 use anyhow::Result;
 use cartridge::Cartridge;
+use glium::glutin::event::KeyboardInput;
 use std::env;
 
-use crate::{hardware::Hardware, utils::performance::mesure_performance};
+use crate::hardware::Hardware;
 
 mod cartridge;
 mod cpu;
@@ -48,6 +50,9 @@ fn create_window(mut hardware: Hardware) {
                     *control_flow = glutin::event_loop::ControlFlow::Exit;
                     return;
                 }
+                glutin::event::WindowEvent::KeyboardInput { input, .. } => {
+                    handle_key_event(input, &mut hardware);
+                }
                 _ => return,
             },
             glutin::event::Event::NewEvents(_) => {
@@ -59,4 +64,40 @@ fn create_window(mut hardware: Hardware) {
             _ => (),
         }
     });
+}
+
+fn handle_key_event(input: KeyboardInput, hardware: &mut Hardware) {
+    use glium::glutin::{self, event::VirtualKeyCode};
+
+    match input {
+        KeyboardInput {
+            virtual_keycode: Some(key),
+            state,
+            ..
+        } => {
+            let key = match key {
+                VirtualKeyCode::A => Some(JoypadKey::A),
+                VirtualKeyCode::B => Some(JoypadKey::B),
+                VirtualKeyCode::Back => Some(JoypadKey::Select),
+                VirtualKeyCode::Return => Some(JoypadKey::Start),
+                VirtualKeyCode::Up => Some(JoypadKey::Up),
+                VirtualKeyCode::Down => Some(JoypadKey::Down),
+                VirtualKeyCode::Left => Some(JoypadKey::Left),
+                VirtualKeyCode::Right => Some(JoypadKey::Right),
+                _ => None,
+            };
+
+            if let Some(key) = key {
+                match state {
+                    glutin::event::ElementState::Pressed => {
+                        hardware.button_pressed(key);
+                    }
+                    glutin::event::ElementState::Released => {
+                        hardware.button_released(key);
+                    }
+                }
+            }
+        }
+        _ => (),
+    }
 }
