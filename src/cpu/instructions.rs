@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum Instruction {
     Load(LoadTarget, LoadTarget),
     LoadImmediate(LoadTarget),
@@ -1179,6 +1180,7 @@ impl Instruction {
     }
 }
 
+#[derive(Debug)]
 pub enum ArithmeticTarget {
     A,
     B,
@@ -1191,6 +1193,7 @@ pub enum ArithmeticTarget {
     Immediate,
 }
 
+#[derive(Debug)]
 pub enum ByteArithmeticTarget {
     A,
     B,
@@ -1202,13 +1205,14 @@ pub enum ByteArithmeticTarget {
     HL,
 }
 
+#[derive(Debug)]
 pub enum ArithmeticTarget16 {
     BC,
     DE,
     HL,
     SP,
 }
-
+#[derive(Debug)]
 pub enum JumpCondition {
     NotZero,
     Zero,
@@ -1217,7 +1221,7 @@ pub enum JumpCondition {
     Always,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum LoadTarget {
     A,
     B,
@@ -1230,6 +1234,7 @@ pub enum LoadTarget {
     ImmediateAddress,
 }
 
+#[derive(Debug)]
 pub enum RamAddressRegistry {
     BC,
     DE,
@@ -1237,6 +1242,7 @@ pub enum RamAddressRegistry {
     HLMinus,
 }
 
+#[derive(Debug)]
 pub enum LoadTarget16 {
     BC,
     DE,
@@ -1244,6 +1250,7 @@ pub enum LoadTarget16 {
     SP,
 }
 
+#[derive(Debug)]
 pub enum PushPopTarget {
     BC,
     DE,
@@ -1251,6 +1258,7 @@ pub enum PushPopTarget {
     AF,
 }
 
+#[derive(Debug)]
 pub enum BitOpTarget {
     Bit0,
     Bit1,

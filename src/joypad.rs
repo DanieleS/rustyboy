@@ -42,32 +42,32 @@ impl JoypadState {
             // Action buttons
             let mut pressed_keys = 0b1101_1111;
             if self.keys.contains(&JoypadKey::A) {
-                pressed_keys &= 0b111_1110;
+                pressed_keys &= 0b1111_1110;
             }
             if self.keys.contains(&JoypadKey::B) {
-                pressed_keys &= 0b111_1101;
+                pressed_keys &= 0b1111_1101;
             }
             if self.keys.contains(&JoypadKey::Select) {
-                pressed_keys &= 0b111_1011;
+                pressed_keys &= 0b1111_1011;
             }
             if self.keys.contains(&JoypadKey::Start) {
-                pressed_keys &= 0b111_0111;
+                pressed_keys &= 0b1111_0111;
             }
 
             pressed_keys
         } else {
             let mut pressed_keys = 0b1110_1111;
             if self.keys.contains(&JoypadKey::Right) {
-                pressed_keys &= 0b111_1110;
+                pressed_keys &= 0b1111_1110;
             }
             if self.keys.contains(&JoypadKey::Left) {
-                pressed_keys &= 0b111_1101;
+                pressed_keys &= 0b1111_1101;
             }
             if self.keys.contains(&JoypadKey::Up) {
-                pressed_keys &= 0b111_1011;
+                pressed_keys &= 0b1111_1011;
             }
             if self.keys.contains(&JoypadKey::Down) {
-                pressed_keys &= 0b111_0111;
+                pressed_keys &= 0b1111_0111;
             }
 
             pressed_keys

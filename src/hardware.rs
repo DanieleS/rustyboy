@@ -59,15 +59,14 @@ impl Hardware {
             self.ppu.dma_transfer(&mut self.ram);
             self.ppu.update_memory(&mut self.ram);
 
-            if self.cpu.registers.program_counter == 0x2000 || trace {
-                trace = true;
-                println!("{}", self.cpu.registers);
-                instructions -= 1;
-
-                if instructions < 0 {
-                    panic!()
-                }
-            }
+            // if self.cpu.registers.program_counter == 0x2651 || trace {
+            //     trace = true;
+            //     println!(
+            //         "CPU: {}, Instruction OPCode: {:02X}",
+            //         self.cpu.registers,
+            //         self.ram.read(self.cpu.registers.program_counter)
+            //     );
+            // }
         }
     }
 

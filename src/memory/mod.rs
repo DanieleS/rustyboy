@@ -70,6 +70,7 @@ pub struct Memory {
     io_registers: GeneralPourposeMemoryBank<0x80>,
     hram: GeneralPourposeMemoryBank<0x7f>,
     interrupt_enable: u8,
+    rom_loaded: bool,
 }
 
 impl Memory {
@@ -85,6 +86,8 @@ impl Memory {
             io_registers: GeneralPourposeMemoryBank::new(0xFF00),
             hram: GeneralPourposeMemoryBank::new(0xFF80),
             interrupt_enable: 0,
+
+            rom_loaded: false,
         }
     }
 
@@ -92,6 +95,8 @@ impl Memory {
         for (i, byte) in rom.iter().enumerate() {
             self.write(i as u16, *byte);
         }
+
+        self.rom_loaded = true;
     }
 
     pub fn read(&self, address: u16) -> u8 {
@@ -130,6 +135,10 @@ impl Memory {
     }
 
     pub fn write(&mut self, address: u16, value: u8) {
+        if self.rom_loaded && (0x0000..=0x7fff).contains(&address) {
+            return;
+        }
+
         match address {
             0x0000..=0x3fff => self.cartridge_bank_0.write(address, value),
             0x4000..=0x7fff => self.cartridge_banks_1_n.get_mut().write(address, value),

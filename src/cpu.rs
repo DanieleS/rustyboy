@@ -1463,9 +1463,9 @@ fn execute_interrupts(
     })
 }
 
-// impl Drop for Cpu {
-//     fn drop(&mut self) {
-//         println!("CPU: {}", self.registers);
-//         println!("CPU: {:?}", self.last_pc);
-//     }
-// }
+impl Drop for Cpu {
+    fn drop(&mut self) {
+        println!("CPU: {}", self.registers);
+        // println!("CPU: {:?}", self.last_pc);
+    }
+}
