@@ -2,6 +2,8 @@
 
 A Gameboy emulator written in Rust for didactical purposes.
 
+![Tetris Title screen](./images/tetris_title.png)
+
 ## Status
 
 This list shows what works and what still needs to be done
