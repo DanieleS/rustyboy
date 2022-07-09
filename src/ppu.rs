@@ -4,7 +4,7 @@ pub mod tiles;
 use std::collections::{HashMap, HashSet};
 
 use crate::cpu::interrupts::Interrupt;
-use crate::lcd::LcdControl;
+use crate::lcd::{self, LcdControl};
 use crate::memory::Memory;
 use crate::utils::performance::mesure_performance;
 

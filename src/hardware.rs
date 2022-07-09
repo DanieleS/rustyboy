@@ -78,3 +78,10 @@ impl Hardware {
         self.joypad.set_key_released(button);
     }
 }
+
+// impl Drop for Hardware {
+//     fn drop(&mut self) {
+//         println!("CPU: {}", self.cpu.registers);
+//         println!("{:?}", self.ram.vram);
+//     }
+// }

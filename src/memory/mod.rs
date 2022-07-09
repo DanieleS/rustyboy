@@ -62,7 +62,7 @@ impl MemoryBank for u8 {
 pub struct Memory {
     cartridge_bank_0: GeneralPourposeMemoryBank<0x4000>,
     cartridge_banks_1_n: Zipper<GeneralPourposeMemoryBank<0x4000>>,
-    vram: GeneralPourposeMemoryBank<0x2000>,
+    pub vram: GeneralPourposeMemoryBank<0x2000>,
     external_ram: Zipper<GeneralPourposeMemoryBank<0x2000>>,
     work_ram: GeneralPourposeMemoryBank<0x1000>,
     work_ram_1_n: Zipper<GeneralPourposeMemoryBank<0x1000>>,

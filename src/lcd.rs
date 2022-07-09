@@ -36,14 +36,11 @@ impl LcdControl {
     }
 
     pub fn get_background_window_tile_address(&self, tile_index: u8) -> u16 {
-        if self.background_tile_map_area {
-            if (tile_index & 0x80) == 0 {
-                0x9000 + (tile_index as u16) * 16
-            } else {
-                0x9000 - (tile_index as u16) * 16
-            }
+        if !self.background_window_tile_data_area {
+            let signed_index = tile_index as i8;
+            (0x9000 + (signed_index as i32 * 16)) as u16
         } else {
-            0x8000 + (tile_index as u16) * 16
+            0x8000 + ((tile_index as u16) * 16)
         }
     }
 
