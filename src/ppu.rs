@@ -15,6 +15,8 @@ const LCD_CONTROL_ADDRESS: u16 = 0xff40;
 const LCD_STAT_ADDRESS: u16 = 0xff41;
 const LY_ADDRESS: u16 = 0xff44;
 const LYC_ADDRESS: u16 = 0xff45;
+const SCY_ADDRESS: u16 = 0xff42;
+const SCX_ADDRESS: u16 = 0xff43;
 
 pub enum PpuMode {
     HBlank,
@@ -134,19 +136,24 @@ impl Ppu {
 
     fn render_line(&mut self, ram: &Memory) {
         let lcd_control = LcdControl::from(ram.read(LCD_CONTROL_ADDRESS));
+        let x_scroll = ram.read(SCX_ADDRESS);
+        let y_scroll = ram.read(SCY_ADDRESS);
+
+        let shifted_scanline = self.scanline.wrapping_add(y_scroll);
 
         let tile_map_area = *lcd_control.get_background_tile_map_area().start();
         let palette = Palette::background(ram);
 
-        let tile_map_row = ram.read_bytes::<32>(tile_map_area + 32 * (self.scanline as u16 / 8));
+        let tile_map_row = ram.read_bytes::<32>(tile_map_area + 32 * (shifted_scanline as u16 / 8));
         let tiles_in_line: HashMap<_, _> = Ppu::get_bg_tiles_in_row(&tile_map_row, ram, &palette);
 
         let sprites_in_row = self.get_sprite_tiles_in_row(ram);
 
         for i in 0..160 {
-            let tile_id = tile_map_row[i as usize / 8];
+            let shifted_dot = (i as u8).wrapping_add(x_scroll);
+            let tile_id = tile_map_row[shifted_dot as usize / 8];
             let tile = tiles_in_line.get(&tile_id).unwrap();
-            let bg_color = tile.get_color(i % 8, self.scanline as usize % 8);
+            let bg_color = tile.get_color(shifted_dot as usize % 8, shifted_scanline as usize % 8);
 
             let sprite_color = sprites_in_row
                 .iter()
