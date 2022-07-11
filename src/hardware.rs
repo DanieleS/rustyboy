@@ -1,6 +1,6 @@
 use crate::cpu::interrupts::{Interrupt, Interrupts};
 use crate::joypad::{JoypadKey, JoypadState};
-use crate::ppu::palette::{Color, Palette};
+use crate::ppu::palette::Color;
 use crate::{cartridge::Cartridge, cpu::Cpu, memory::Memory, ppu::Ppu};
 
 pub struct Hardware {
@@ -32,6 +32,7 @@ impl Hardware {
     pub fn run(&mut self) -> [Color; 160 * 144] {
         let mut trace = false;
         let mut instructions = 10;
+
         loop {
             let (elapsed_cycles, next_is_extended, _) = self
                 .cpu
@@ -52,12 +53,16 @@ impl Hardware {
                 }
             }
 
-            if let Some(buffer) = buffer {
-                return buffer;
+            if self.ram.io_registers.timer_step(elapsed_cycles as i8) {
+                Interrupts::dispatch_interrupt(Interrupt::Timer, &mut self.ram);
             }
 
             self.ppu.dma_transfer(&mut self.ram);
             self.ppu.update_memory(&mut self.ram);
+
+            if let Some(buffer) = buffer {
+                return buffer;
+            }
         }
     }
 
@@ -73,6 +78,5 @@ impl Hardware {
 impl Drop for Hardware {
     fn drop(&mut self) {
         println!("CPU: {}", self.cpu.registers);
-        println!("{:?}", self.ram.oam);
     }
 }

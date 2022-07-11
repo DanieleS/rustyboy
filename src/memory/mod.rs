@@ -1,5 +1,10 @@
 use crate::utils::zipper::Zipper;
 
+use self::io::IOMemoryBank;
+
+mod io;
+mod timer;
+
 trait MemoryBank {
     fn read(&self, address: u16) -> u8;
     fn write(&mut self, address: u16, value: u8);
@@ -49,44 +54,6 @@ impl<const C: usize> MemoryBank for GeneralPourposeMemoryBank<C> {
     }
 }
 
-struct IOMemoryBank {
-    joyp: u8,
-    data: GeneralPourposeMemoryBank<0x7f>,
-}
-
-impl IOMemoryBank {
-    fn new() -> Self {
-        Self {
-            joyp: 0xff,
-            data: GeneralPourposeMemoryBank::new(0xFF01),
-        }
-    }
-}
-
-impl MemoryBank for IOMemoryBank {
-    fn read(&self, address: u16) -> u8 {
-        if address == 0xff00 {
-            self.joyp
-        } else {
-            self.data.read(address)
-        }
-    }
-
-    fn write(&mut self, address: u16, value: u8) {
-        if address == 0xff00 {
-            if value & 0b0011_0000 != 0 {
-                // Writing upper nibble
-                self.joyp = (self.joyp & 0b0000_1111) | (value & 0b0011_0000) | 0xc0;
-            } else {
-                // Writing lower nibble
-                self.joyp = (self.joyp & 0b1111_0000) | (value & 0b0000_1111);
-            }
-        } else {
-            self.data.write(address, value)
-        }
-    }
-}
-
 impl MemoryBank for u8 {
     fn read(&self, _address: u16) -> u8 {
         *self
@@ -100,12 +67,12 @@ impl MemoryBank for u8 {
 pub struct Memory {
     cartridge_bank_0: GeneralPourposeMemoryBank<0x4000>,
     cartridge_banks_1_n: Zipper<GeneralPourposeMemoryBank<0x4000>>,
-    pub vram: GeneralPourposeMemoryBank<0x2000>,
+    vram: GeneralPourposeMemoryBank<0x2000>,
     external_ram: Zipper<GeneralPourposeMemoryBank<0x2000>>,
     work_ram: GeneralPourposeMemoryBank<0x1000>,
     work_ram_1_n: Zipper<GeneralPourposeMemoryBank<0x1000>>,
-    pub oam: GeneralPourposeMemoryBank<0x100>,
-    io_registers: IOMemoryBank,
+    oam: GeneralPourposeMemoryBank<0x100>,
+    pub io_registers: IOMemoryBank,
     hram: GeneralPourposeMemoryBank<0x7f>,
     interrupt_enable: u8,
     rom_loaded: bool,
