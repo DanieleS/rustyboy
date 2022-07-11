@@ -17,6 +17,6 @@ This list shows what works and what still needs to be done
   - [x] VBlank
   - [ ] LCD Stat
   - [ ] Joypad
-  - [ ] Timer
+  - [x] Timer
   - [ ] Serial
 - [ ] APU
