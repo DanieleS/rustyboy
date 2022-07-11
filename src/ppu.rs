@@ -157,12 +157,16 @@ impl Ppu {
 
             let sprite_color = sprites_in_row
                 .iter()
-                .find(|&sprite| (sprite.x..sprite.x + 8).contains(&(i as u8 + 8)))
+                .filter(|&sprite| (sprite.x..sprite.x + 8).contains(&(i as u8 + 8)))
                 .map(|sprite| {
                     sprite.get_color(
                         (i - sprite.x as usize % 8) % 8,
                         (self.scanline as usize - sprite.y as usize % 8) % 8,
                     )
+                })
+                .find(|&color| match color {
+                    Color::Transparent => false,
+                    _ => true,
                 })
                 .and_then(|color| match color {
                     Color::Transparent => None,
