@@ -480,7 +480,7 @@ fn execute_add_with_carry(
 
 fn execute_subtract(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
     fn subtract(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep {
-        let (result, overflow) = value.overflowing_sub(cpu.registers.a);
+        let (result, overflow) = cpu.registers.a.overflowing_sub(value);
         cpu.registers.f.zero = result == 0;
         cpu.registers.f.subtract = true;
         cpu.registers.f.carry = overflow;
@@ -501,7 +501,7 @@ fn execute_subtract_with_carry(
 ) -> ExecutionStep {
     fn subtract(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep {
         let carry = cpu.registers.f.carry as u8;
-        let result = value.wrapping_sub(cpu.registers.a).wrapping_sub(carry);
+        let result = cpu.registers.a.wrapping_sub(value).wrapping_sub(carry);
         cpu.registers.f.zero = result == 0;
         cpu.registers.f.subtract = true;
         cpu.registers.f.carry = (cpu.registers.a as u16) < (value as u16) + (carry as u16);

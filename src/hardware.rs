@@ -31,7 +31,7 @@ impl Hardware {
 
     pub fn run(&mut self) -> [Color; 160 * 144] {
         let mut trace = false;
-        let mut instructions = 100;
+        let mut instructions = 10;
         loop {
             let (elapsed_cycles, next_is_extended, _) = self
                 .cpu
@@ -58,15 +58,6 @@ impl Hardware {
 
             self.ppu.dma_transfer(&mut self.ram);
             self.ppu.update_memory(&mut self.ram);
-
-            // if self.cpu.registers.program_counter == 0x2651 || trace {
-            //     trace = true;
-            //     println!(
-            //         "CPU: {}, Instruction OPCode: {:02X}",
-            //         self.cpu.registers,
-            //         self.ram.read(self.cpu.registers.program_counter)
-            //     );
-            // }
         }
     }
 
@@ -82,9 +73,6 @@ impl Hardware {
 impl Drop for Hardware {
     fn drop(&mut self) {
         println!("CPU: {}", self.cpu.registers);
-        println!("BGP {:?}", Palette::background(&self.ram));
-        println!("OBP0 {:?}", Palette::obp0(&self.ram));
-        println!("OBP1 {:?}", Palette::obp1(&self.ram));
         println!("{:?}", self.ram.oam);
     }
 }
