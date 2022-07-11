@@ -23,9 +23,10 @@ pub fn render(display: &Display, buffer: [Color; 160 * 144]) {
 
 fn color_to_bytes(color: &Color) -> [u8; 3] {
     match color {
+        Color::Transparent => [0x00, 0x00, 0x00],
         Color::White => [0xff, 0xff, 0xff],
         Color::LightGray => [0xcc, 0xcc, 0xcc],
         Color::DarkGray => [0x77, 0x77, 0x77],
-        Color::Black => [0, 0x00, 0x00],
+        Color::Black => [0x00, 0x00, 0x00],
     }
 }

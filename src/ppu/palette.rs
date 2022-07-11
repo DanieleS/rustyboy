@@ -6,6 +6,7 @@ const OBP1_PALETTE_ADDRESS: u16 = 0xff49;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Color {
+    Transparent = -1,
     White = 0,
     LightGray = 1,
     DarkGray = 2,
@@ -31,6 +32,7 @@ impl std::fmt::Display for Color {
             Color::LightGray => write!(f, "░"),
             Color::DarkGray => write!(f, "▒"),
             Color::Black => write!(f, "█"),
+            Color::Transparent => write!(f, " "),
         }
     }
 }
@@ -50,22 +52,21 @@ pub enum SpritePalette {
 #[derive(Debug, Clone)]
 pub struct Palette {
     colors: [Color; 4],
-    palette_type: PaletteType,
 }
 
 impl Palette {
     pub fn from_u8(value: u8, palette_type: PaletteType) -> Palette {
         let colors = [
-            Color::from(value),
+            match palette_type {
+                PaletteType::Background => Color::from(value),
+                PaletteType::Sprite => Color::Transparent,
+            },
             Color::from(value >> 2),
             Color::from(value >> 4),
             Color::from(value >> 6),
         ];
 
-        Palette {
-            colors,
-            palette_type,
-        }
+        Palette { colors }
     }
 
     pub fn background(ram: &Memory) -> Palette {
@@ -104,7 +105,6 @@ impl std::default::Default for Palette {
                 Color::DarkGray,
                 Color::Black,
             ],
-            palette_type: PaletteType::Background,
         }
     }
 }

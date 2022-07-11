@@ -140,7 +140,7 @@ impl std::convert::From<u8> for SpriteFlags {
             bg_and_window_over: (value & 0x80) != 0,
             y_flip: (value & 0x40) != 0,
             x_flip: (value & 0x20) != 0,
-            palette_number: match value & 0x10 >> 4 {
+            palette_number: match (value & 0x10) >> 4 {
                 0 => SpritePalette::OBP0,
                 1 => SpritePalette::OBP1,
                 _ => panic!("Invalid sprite palette"),

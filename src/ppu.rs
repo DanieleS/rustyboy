@@ -165,7 +165,7 @@ impl Ppu {
                     )
                 })
                 .and_then(|color| match color {
-                    Color::White => None,
+                    Color::Transparent => None,
                     color => Some(color),
                 });
 

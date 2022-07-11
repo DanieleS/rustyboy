@@ -1,6 +1,6 @@
 use crate::cpu::interrupts::{Interrupt, Interrupts};
 use crate::joypad::{JoypadKey, JoypadState};
-use crate::ppu::palette::Color;
+use crate::ppu::palette::{Color, Palette};
 use crate::{cartridge::Cartridge, cpu::Cpu, memory::Memory, ppu::Ppu};
 
 pub struct Hardware {
@@ -79,9 +79,12 @@ impl Hardware {
     }
 }
 
-// impl Drop for Hardware {
-//     fn drop(&mut self) {
-//         println!("CPU: {}", self.cpu.registers);
-//         println!("{:?}", self.ram.vram);
-//     }
-// }
+impl Drop for Hardware {
+    fn drop(&mut self) {
+        println!("CPU: {}", self.cpu.registers);
+        println!("BGP {:?}", Palette::background(&self.ram));
+        println!("OBP0 {:?}", Palette::obp0(&self.ram));
+        println!("OBP1 {:?}", Palette::obp1(&self.ram));
+        println!("{:?}", self.ram.oam);
+    }
+}
