@@ -29,10 +29,10 @@ pub struct SpriteFlags {
 }
 
 impl Tile {
-    pub fn read_from(ram: &Memory, address: u16) -> Tile {
+    pub fn read_from(memory_bus: &Memory, address: u16) -> Tile {
         let mut data = [0; 16];
         for i in 0..16 {
-            data[i] = ram.read(address + i as u16);
+            data[i] = memory_bus.read(address + i as u16);
         }
         Tile { data }
     }

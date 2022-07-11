@@ -48,7 +48,7 @@ impl Ppu {
         }
     }
 
-    pub fn step(&mut self, ram: &Memory) -> Option<Interrupt> {
+    pub fn step(&mut self, memory_bus: &Memory) -> Option<Interrupt> {
         match self.mode {
             PpuMode::HBlank => {
                 if self.dots == 456 {
@@ -90,7 +90,7 @@ impl Ppu {
             }
             PpuMode::PixelTransfer => {
                 if self.dots == 240 {
-                    self.render_line(ram);
+                    self.render_line(memory_bus);
                     self.mode = PpuMode::HBlank;
                 }
                 self.dots += 1;
@@ -99,29 +99,29 @@ impl Ppu {
         }
     }
 
-    pub fn update_memory(&mut self, ram: &mut Memory) {
-        ram.write(LY_ADDRESS, self.scanline);
-        ram.write(LCD_STAT_ADDRESS, self.create_stat_byte(ram))
+    pub fn update_memory(&mut self, memory_bus: &mut Memory) {
+        memory_bus.write(LY_ADDRESS, self.scanline);
+        memory_bus.write(LCD_STAT_ADDRESS, self.create_stat_byte(memory_bus))
     }
 
-    pub fn dma_transfer(&mut self, ram: &mut Memory) {
-        let mut address = ram.read(0xff46) as u16;
+    pub fn dma_transfer(&mut self, memory_bus: &mut Memory) {
+        let mut address = memory_bus.read(0xff46) as u16;
 
         if self.last_oam_transfer != address {
             address <<= 8;
 
             for i in 0..0xa0 {
-                let byte = ram.read(address as u16 + i as u16);
-                ram.write(0xfe00 + i as u16, byte);
+                let byte = memory_bus.read(address as u16 + i as u16);
+                memory_bus.write(0xfe00 + i as u16, byte);
             }
 
             self.last_oam_transfer = address;
         }
     }
 
-    fn create_stat_byte(&self, ram: &Memory) -> u8 {
+    fn create_stat_byte(&self, memory_bus: &Memory) -> u8 {
         let ly = self.scanline;
-        let lyc = ram.read(LYC_ADDRESS);
+        let lyc = memory_bus.read(LYC_ADDRESS);
         let state: u8 = match self.mode {
             PpuMode::HBlank => 0b00,
             PpuMode::VBlank => 0b01,
@@ -134,20 +134,22 @@ impl Ppu {
         (ly_eq_lyc << 7) | state
     }
 
-    fn render_line(&mut self, ram: &Memory) {
-        let lcd_control = LcdControl::from(ram.read(LCD_CONTROL_ADDRESS));
-        let x_scroll = ram.read(SCX_ADDRESS);
-        let y_scroll = ram.read(SCY_ADDRESS);
+    fn render_line(&mut self, memory_bus: &Memory) {
+        let lcd_control = LcdControl::from(memory_bus.read(LCD_CONTROL_ADDRESS));
+        let x_scroll = memory_bus.read(SCX_ADDRESS);
+        let y_scroll = memory_bus.read(SCY_ADDRESS);
 
         let shifted_scanline = self.scanline.wrapping_add(y_scroll);
 
         let tile_map_area = *lcd_control.get_background_tile_map_area().start();
-        let palette = Palette::background(ram);
+        let palette = Palette::background(memory_bus);
 
-        let tile_map_row = ram.read_bytes::<32>(tile_map_area + 32 * (shifted_scanline as u16 / 8));
-        let tiles_in_line: HashMap<_, _> = Ppu::get_bg_tiles_in_row(&tile_map_row, ram, &palette);
+        let tile_map_row =
+            memory_bus.read_bytes::<32>(tile_map_area + 32 * (shifted_scanline as u16 / 8));
+        let tiles_in_line: HashMap<_, _> =
+            Ppu::get_bg_tiles_in_row(&tile_map_row, memory_bus, &palette);
 
-        let sprites_in_row = self.get_sprite_tiles_in_row(ram);
+        let sprites_in_row = self.get_sprite_tiles_in_row(memory_bus);
 
         for i in 0..160 {
             let shifted_dot = (i as u8).wrapping_add(x_scroll);
@@ -183,10 +185,10 @@ impl Ppu {
 
     fn get_bg_tiles_in_row(
         tile_map_row: &[u8],
-        ram: &Memory,
+        memory_bus: &Memory,
         palette: &Palette,
     ) -> HashMap<u8, TileWithColors> {
-        let lcd_control = LcdControl::from(ram.read(LCD_CONTROL_ADDRESS));
+        let lcd_control = LcdControl::from(memory_bus.read(LCD_CONTROL_ADDRESS));
 
         tile_map_row
             .iter()
@@ -194,21 +196,24 @@ impl Ppu {
             .collect::<HashSet<_>>()
             .iter()
             .map(|x| {
-                let tile = Tile::read_from(ram, lcd_control.get_background_window_tile_address(*x));
+                let tile = Tile::read_from(
+                    memory_bus,
+                    lcd_control.get_background_window_tile_address(*x),
+                );
                 let tile = tile.to_tile_with_colors(&palette);
                 (*x, tile)
             })
             .collect()
     }
 
-    fn get_sprite_tiles_in_row(&self, ram: &Memory) -> Vec<Sprite> {
-        let lcd_control = LcdControl::from(ram.read(LCD_CONTROL_ADDRESS));
+    fn get_sprite_tiles_in_row(&self, memory_bus: &Memory) -> Vec<Sprite> {
+        let lcd_control = LcdControl::from(memory_bus.read(LCD_CONTROL_ADDRESS));
 
         if !lcd_control.object_enable {
             return vec![];
         }
 
-        let sprites = self.get_sprites(ram);
+        let sprites = self.get_sprites(memory_bus);
         let mut row_sprites = vec![];
 
         for sprite in sprites {
@@ -220,14 +225,14 @@ impl Ppu {
         row_sprites
     }
 
-    fn get_sprites(&self, ram: &Memory) -> Vec<Sprite> {
+    fn get_sprites(&self, memory_bus: &Memory) -> Vec<Sprite> {
         let mut sprites = vec![];
-        let obp0 = Palette::obp0(ram);
-        let obp1 = Palette::obp1(ram);
+        let obp0 = Palette::obp0(memory_bus);
+        let obp1 = Palette::obp1(memory_bus);
 
         for i in (0xfe00..0xff00).step_by(4) {
-            let sprite_data = ram.read_bytes::<4>(i);
-            let tile = Tile::read_from(ram, 0x8000 + sprite_data[2] as u16 * 16);
+            let sprite_data = memory_bus.read_bytes::<4>(i);
+            let tile = Tile::read_from(memory_bus, 0x8000 + sprite_data[2] as u16 * 16);
             let sprite = Sprite::new_from_bytes(sprite_data, tile, &obp0, &obp1);
             sprites.push(sprite);
         }

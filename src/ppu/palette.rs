@@ -69,18 +69,18 @@ impl Palette {
         Palette { colors }
     }
 
-    pub fn background(ram: &Memory) -> Palette {
-        let value = ram.read(BG_PALETTE_ADDRESS);
+    pub fn background(memory_bus: &Memory) -> Palette {
+        let value = memory_bus.read(BG_PALETTE_ADDRESS);
         Palette::from_u8(value, PaletteType::Background)
     }
 
-    pub fn obp0(ram: &Memory) -> Palette {
-        let value = ram.read(OBP0_PALETTE_ADDRESS);
+    pub fn obp0(memory_bus: &Memory) -> Palette {
+        let value = memory_bus.read(OBP0_PALETTE_ADDRESS);
         Palette::from_u8(value, PaletteType::Sprite)
     }
 
-    pub fn obp1(ram: &Memory) -> Palette {
-        let value = ram.read(OBP1_PALETTE_ADDRESS);
+    pub fn obp1(memory_bus: &Memory) -> Palette {
+        let value = memory_bus.read(OBP1_PALETTE_ADDRESS);
         Palette::from_u8(value, PaletteType::Sprite)
     }
 

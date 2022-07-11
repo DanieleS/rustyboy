@@ -8,7 +8,7 @@ use crate::memory::Memory;
 use crate::utils::int::test_add_carry_bit;
 use instructions::{
     ArithmeticTarget, ArithmeticTarget16, Instruction, JumpCondition, LoadTarget,
-    RamAddressRegistry,
+    MemoryAddressRegistry,
 };
 use interrupts::{Interrupt, Interrupts};
 
@@ -180,15 +180,19 @@ impl Cpu {
         }
     }
 
-    pub fn step(&mut self, ram: &mut Memory, is_extended_instruction: bool) -> (u8, bool, bool) {
-        let mut interrupts = Interrupts::get_interrupts(ram);
+    pub fn step(
+        &mut self,
+        memory_bus: &mut Memory,
+        is_extended_instruction: bool,
+    ) -> (u8, bool, bool) {
+        let mut interrupts = Interrupts::get_interrupts(memory_bus);
 
         if let Some(ExecutionStep {
             program_counter,
             cycles,
             next_is_extended_instruction,
             ..
-        }) = execute_interrupts(self, ram, &mut interrupts)
+        }) = execute_interrupts(self, memory_bus, &mut interrupts)
         {
             self.registers.program_counter = program_counter;
             return (cycles, next_is_extended_instruction, false);
@@ -198,7 +202,7 @@ impl Cpu {
             return (1, false, true);
         }
 
-        let opcode = ram.read(self.registers.program_counter);
+        let opcode = memory_bus.read(self.registers.program_counter);
         let instruction = Instruction::from_byte(opcode, is_extended_instruction);
         let ExecutionStep {
             program_counter,
@@ -206,7 +210,7 @@ impl Cpu {
             state,
             next_is_extended_instruction: extended_instruction,
         } = if let Some(instruction) = instruction {
-            self.execute(ram, instruction)
+            self.execute(memory_bus, instruction)
         } else {
             panic!("Unknown opcode: {:X}", opcode);
         };
@@ -226,43 +230,51 @@ impl Cpu {
         )
     }
 
-    fn execute(&mut self, ram: &mut Memory, instruction: Instruction) -> ExecutionStep {
+    fn execute(&mut self, memory_bus: &mut Memory, instruction: Instruction) -> ExecutionStep {
         match instruction {
             Instruction::Noop => {
                 ExecutionStep::new(self.registers.program_counter.wrapping_add(1), 1)
             }
-            Instruction::Load(destination, source) => exeute_load(self, ram, destination, source),
-            Instruction::LoadImmediate(destination) => {
-                execute_load_immediate(self, ram, destination)
+            Instruction::Load(destination, source) => {
+                exeute_load(self, memory_bus, destination, source)
             }
-            Instruction::Add(target) => execute_add(self, ram, target),
-            Instruction::AddCarry(target) => execute_add_with_carry(self, ram, target),
-            Instruction::Subtract(target) => execute_subtract(self, ram, target),
-            Instruction::SubtractCarry(target) => execute_subtract_with_carry(self, ram, target),
-            Instruction::And(target) => execute_and(self, ram, target),
-            Instruction::Xor(target) => execute_xor(self, ram, target),
-            Instruction::Or(target) => execute_or(self, ram, target),
-            Instruction::Cp(target) => execute_cp(self, ram, target),
-            Instruction::Jump(condition) => execute_jump(self, ram, condition),
+            Instruction::LoadImmediate(destination) => {
+                execute_load_immediate(self, memory_bus, destination)
+            }
+            Instruction::Add(target) => execute_add(self, memory_bus, target),
+            Instruction::AddCarry(target) => execute_add_with_carry(self, memory_bus, target),
+            Instruction::Subtract(target) => execute_subtract(self, memory_bus, target),
+            Instruction::SubtractCarry(target) => {
+                execute_subtract_with_carry(self, memory_bus, target)
+            }
+            Instruction::And(target) => execute_and(self, memory_bus, target),
+            Instruction::Xor(target) => execute_xor(self, memory_bus, target),
+            Instruction::Or(target) => execute_or(self, memory_bus, target),
+            Instruction::Cp(target) => execute_cp(self, memory_bus, target),
+            Instruction::Jump(condition) => execute_jump(self, memory_bus, condition),
             Instruction::JumpHL => execute_hl_jump(self),
-            Instruction::RelativeJump(condition) => execute_relative_jump(self, ram, condition),
+            Instruction::RelativeJump(condition) => {
+                execute_relative_jump(self, memory_bus, condition)
+            }
             Instruction::Add16(target) => execute_add16(self, target),
             Instruction::ReadFromRam(address_regisry) => {
-                execute_read_from_ram(self, ram, address_regisry)
+                execute_read_from_ram(self, memory_bus, address_regisry)
             }
             Instruction::WriteToRam(address_regisry) => {
-                execute_write_to_ram(self, ram, address_regisry)
+                execute_write_to_ram(self, memory_bus, address_regisry)
             }
             Instruction::WriteToRamFromStackPointer => {
-                execute_write_to_ram_from_stack_pointer(self, ram)
+                execute_write_to_ram_from_stack_pointer(self, memory_bus)
             }
-            Instruction::LoadImmediate16(target) => execute_load_immediate16(self, ram, target),
-            Instruction::Increment(target) => execute_increment(self, ram, target),
-            Instruction::Decrement(target) => execute_decrement(self, ram, target),
+            Instruction::LoadImmediate16(target) => {
+                execute_load_immediate16(self, memory_bus, target)
+            }
+            Instruction::Increment(target) => execute_increment(self, memory_bus, target),
+            Instruction::Decrement(target) => execute_decrement(self, memory_bus, target),
             Instruction::Increment16(target) => execute_increment16(self, target),
             Instruction::Decrement16(target) => execute_decrement16(self, target),
-            Instruction::Push(target) => execute_push(self, ram, target),
-            Instruction::Pop(target) => execute_pop(self, ram, target),
+            Instruction::Push(target) => execute_push(self, memory_bus, target),
+            Instruction::Pop(target) => execute_pop(self, memory_bus, target),
             Instruction::RotateLeftA => execute_rotate_left_a(self),
             Instruction::RotateLeftCarryA => execute_rotate_left_carry_a(self),
             Instruction::RotateRightA => execute_rotate_right_a(self),
@@ -274,58 +286,66 @@ impl Cpu {
             Instruction::Stop => execute_stop(self),
             Instruction::DisableInterrupts => execute_disable_interrupts(self),
             Instruction::EnableInterrupts => execute_enable_interrupts(self),
-            Instruction::Halt => execute_halt(self, ram),
-            Instruction::Call => execute_call(self, ram),
-            Instruction::CallCondition(condition) => execute_call_condition(self, ram, condition),
-            Instruction::Return => execute_return(self, ram),
+            Instruction::Halt => execute_halt(self),
+            Instruction::Call => execute_call(self, memory_bus),
+            Instruction::CallCondition(condition) => {
+                execute_call_condition(self, memory_bus, condition)
+            }
+            Instruction::Return => execute_return(self, memory_bus),
             Instruction::ReturnCondition(condition) => {
-                execute_return_condition(self, ram, condition)
+                execute_return_condition(self, memory_bus, condition)
             }
             Instruction::ReturnAndEnableInterrupts => {
-                execute_return_and_enable_interrupts(self, ram)
+                execute_return_and_enable_interrupts(self, memory_bus)
             }
-            Instruction::Restart(address) => execute_restart(self, ram, address),
+            Instruction::Restart(address) => execute_restart(self, memory_bus, address),
             Instruction::ExtendedOpcode => execute_extended_opcode(self),
-            Instruction::LoadH => execute_load_h(self, ram),
-            Instruction::WriteH => execute_write_h(self, ram),
-            Instruction::LoadHC => execute_load_hc(self, ram),
-            Instruction::WriteHC => execute_write_hc(self, ram),
-            Instruction::AddSP => execute_add_sp(self, ram),
+            Instruction::LoadH => execute_load_h(self, memory_bus),
+            Instruction::WriteH => execute_write_h(self, memory_bus),
+            Instruction::LoadHC => execute_load_hc(self, memory_bus),
+            Instruction::WriteHC => execute_write_hc(self, memory_bus),
+            Instruction::AddSP => execute_add_sp(self, memory_bus),
             Instruction::LoadSPHL => execute_load_sp_hl(self),
-            Instruction::LoadHLSP => execute_load_hl_sp(self, ram),
+            Instruction::LoadHLSP => execute_load_hl_sp(self, memory_bus),
 
             //Extended
-            Instruction::RotateLeft(target) => execute_rotate_left(self, ram, target),
-            Instruction::RotateLeftCarry(target) => execute_rotate_left_carry(self, ram, target),
-            Instruction::RotateRight(target) => execute_rotate_right(self, ram, target),
-            Instruction::RotateRightCarry(target) => execute_rotate_right_carry(self, ram, target),
+            Instruction::RotateLeft(target) => execute_rotate_left(self, memory_bus, target),
+            Instruction::RotateLeftCarry(target) => {
+                execute_rotate_left_carry(self, memory_bus, target)
+            }
+            Instruction::RotateRight(target) => execute_rotate_right(self, memory_bus, target),
+            Instruction::RotateRightCarry(target) => {
+                execute_rotate_right_carry(self, memory_bus, target)
+            }
             Instruction::ShiftLeftArithmetic(target) => {
-                execute_shift_left_arithmetic(self, ram, target)
+                execute_shift_left_arithmetic(self, memory_bus, target)
             }
             Instruction::ShiftRightArithmetic(target) => {
-                execute_shift_right_arithmetic(self, ram, target)
+                execute_shift_right_arithmetic(self, memory_bus, target)
             }
-            Instruction::Swap(target) => execute_swap(self, ram, target),
-            Instruction::ShiftRightLogic(target) => execute_shift_right_logic(self, ram, target),
+            Instruction::Swap(target) => execute_swap(self, memory_bus, target),
+            Instruction::ShiftRightLogic(target) => {
+                execute_shift_right_logic(self, memory_bus, target)
+            }
             Instruction::TestBit(bit_target, target) => {
-                execute_test_bit(self, ram, bit_target, target)
+                execute_test_bit(self, memory_bus, bit_target, target)
             }
             Instruction::ResetBit(bit_target, target) => {
-                execute_reset_bit(self, ram, bit_target, target)
+                execute_reset_bit(self, memory_bus, bit_target, target)
             }
             Instruction::SetBit(bit_target, target) => {
-                execute_set_bit(self, ram, bit_target, target)
+                execute_set_bit(self, memory_bus, bit_target, target)
             }
         }
     }
 
-    fn push(&mut self, ram: &mut Memory, value: u16) {
+    fn push(&mut self, memory_bus: &mut Memory, value: u16) {
         self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(2);
-        ram.write16(self.registers.stack_pointer, value)
+        memory_bus.write16(self.registers.stack_pointer, value)
     }
 
-    fn pop(&mut self, ram: &mut Memory) -> u16 {
-        let value = ram.read16(self.registers.stack_pointer);
+    fn pop(&mut self, memory_bus: &mut Memory) -> u16 {
+        let value = memory_bus.read16(self.registers.stack_pointer);
         self.registers.stack_pointer = self.registers.stack_pointer.wrapping_add(2);
         value
     }
@@ -367,14 +387,14 @@ fn get_arictmetic_execution_step(
 
 fn execute_arithmetic(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     target: &ArithmeticTarget,
     function: fn(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep,
 ) -> ExecutionStep {
     let register_a = cpu.registers.a;
     let register_hl = cpu.registers.get_hl();
 
-    let hl_value = ram.read(register_hl);
+    let hl_value = memory_bus.read(register_hl);
 
     match target {
         ArithmeticTarget::A => function(cpu, target, register_a),
@@ -386,13 +406,17 @@ fn execute_arithmetic(
         ArithmeticTarget::L => function(cpu, target, cpu.registers.l),
         ArithmeticTarget::HL => function(cpu, target, hl_value),
         ArithmeticTarget::Immediate => {
-            let immediate = ram.read(cpu.registers.program_counter + 1);
+            let immediate = memory_bus.read(cpu.registers.program_counter + 1);
             function(cpu, target, immediate)
         }
     }
 }
 
-fn read_byte_arithmetic_target(cpu: &Cpu, ram: &Memory, target: &ByteArithmeticTarget) -> u8 {
+fn read_byte_arithmetic_target(
+    cpu: &Cpu,
+    memory_bus: &Memory,
+    target: &ByteArithmeticTarget,
+) -> u8 {
     match target {
         ByteArithmeticTarget::A => cpu.registers.a,
         ByteArithmeticTarget::B => cpu.registers.b,
@@ -401,13 +425,13 @@ fn read_byte_arithmetic_target(cpu: &Cpu, ram: &Memory, target: &ByteArithmeticT
         ByteArithmeticTarget::E => cpu.registers.e,
         ByteArithmeticTarget::H => cpu.registers.h,
         ByteArithmeticTarget::L => cpu.registers.l,
-        ByteArithmeticTarget::HL => ram.read(cpu.registers.get_hl()),
+        ByteArithmeticTarget::HL => memory_bus.read(cpu.registers.get_hl()),
     }
 }
 
 fn write_byte_arithmetic_target(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     target: &ByteArithmeticTarget,
     value: u8,
 ) {
@@ -419,20 +443,20 @@ fn write_byte_arithmetic_target(
         ByteArithmeticTarget::E => cpu.registers.e = value,
         ByteArithmeticTarget::H => cpu.registers.h = value,
         ByteArithmeticTarget::L => cpu.registers.l = value,
-        ByteArithmeticTarget::HL => ram.write(cpu.registers.get_hl(), value),
+        ByteArithmeticTarget::HL => memory_bus.write(cpu.registers.get_hl(), value),
     }
 }
 
 fn execute_byte_arithmetic(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     target: &ByteArithmeticTarget,
     function: fn(cpu: &mut Cpu, value: u8) -> u8,
 ) -> ExecutionStep {
-    let value = read_byte_arithmetic_target(cpu, ram, target);
+    let value = read_byte_arithmetic_target(cpu, memory_bus, target);
     let value = function(cpu, value);
 
-    write_byte_arithmetic_target(cpu, ram, target, value);
+    write_byte_arithmetic_target(cpu, memory_bus, target, value);
 
     ExecutionStep::new(
         cpu.registers.program_counter + 1,
@@ -443,7 +467,11 @@ fn execute_byte_arithmetic(
     )
 }
 
-fn execute_add(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
+fn execute_add(
+    cpu: &mut Cpu,
+    memory_busam: &mut Memory,
+    target: ArithmeticTarget,
+) -> ExecutionStep {
     fn add(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep {
         let (result, overflow) = value.overflowing_add(cpu.registers.a);
         cpu.registers.f.zero = result == 0;
@@ -455,12 +483,12 @@ fn execute_add(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> Exe
         get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
-    execute_arithmetic(cpu, ram, &target, add)
+    execute_arithmetic(cpu, memory_busam, &target, add)
 }
 
 fn execute_add_with_carry(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     target: ArithmeticTarget,
 ) -> ExecutionStep {
     fn add(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep {
@@ -475,10 +503,14 @@ fn execute_add_with_carry(
         get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
-    execute_arithmetic(cpu, ram, &target, add)
+    execute_arithmetic(cpu, memory_bus, &target, add)
 }
 
-fn execute_subtract(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
+fn execute_subtract(
+    cpu: &mut Cpu,
+    memory_bus: &mut Memory,
+    target: ArithmeticTarget,
+) -> ExecutionStep {
     fn subtract(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep {
         let (result, overflow) = cpu.registers.a.overflowing_sub(value);
         cpu.registers.f.zero = result == 0;
@@ -491,12 +523,12 @@ fn execute_subtract(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -
         get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
-    execute_arithmetic(cpu, ram, &target, subtract)
+    execute_arithmetic(cpu, memory_bus, &target, subtract)
 }
 
 fn execute_subtract_with_carry(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     target: ArithmeticTarget,
 ) -> ExecutionStep {
     fn subtract(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep {
@@ -515,10 +547,10 @@ fn execute_subtract_with_carry(
         get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
-    execute_arithmetic(cpu, ram, &target, subtract)
+    execute_arithmetic(cpu, memory_bus, &target, subtract)
 }
 
-fn execute_and(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
+fn execute_and(cpu: &mut Cpu, memory_bus: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
     fn and(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep {
         let result = value & cpu.registers.a;
         cpu.registers.f.zero = result == 0;
@@ -530,10 +562,10 @@ fn execute_and(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> Exe
         get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
-    execute_arithmetic(cpu, ram, &target, and)
+    execute_arithmetic(cpu, memory_bus, &target, and)
 }
 
-fn execute_or(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
+fn execute_or(cpu: &mut Cpu, memory_bus: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
     fn or(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep {
         let result = value | cpu.registers.a;
         cpu.registers.f.zero = result == 0;
@@ -545,10 +577,10 @@ fn execute_or(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> Exec
         get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
-    execute_arithmetic(cpu, ram, &target, or)
+    execute_arithmetic(cpu, memory_bus, &target, or)
 }
 
-fn execute_xor(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
+fn execute_xor(cpu: &mut Cpu, memory_bus: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
     fn xor(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep {
         let result = value ^ cpu.registers.a;
         cpu.registers.f.zero = result == 0;
@@ -560,10 +592,10 @@ fn execute_xor(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> Exe
         get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
-    execute_arithmetic(cpu, ram, &target, xor)
+    execute_arithmetic(cpu, memory_bus, &target, xor)
 }
 
-fn execute_cp(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
+fn execute_cp(cpu: &mut Cpu, memory_bus: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
     fn cp(cpu: &mut Cpu, target: &ArithmeticTarget, value: u8) -> ExecutionStep {
         let result = value.wrapping_sub(cpu.registers.a);
         cpu.registers.f.zero = result == 0;
@@ -575,7 +607,7 @@ fn execute_cp(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> Exec
         get_arictmetic_execution_step(&cpu.registers.program_counter, target)
     }
 
-    execute_arithmetic(cpu, ram, &target, cp)
+    execute_arithmetic(cpu, memory_bus, &target, cp)
 }
 
 fn execute_add16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionStep {
@@ -609,11 +641,11 @@ fn check_jump_condition(cpu: &Cpu, condition: JumpCondition) -> bool {
     }
 }
 
-fn execute_jump(cpu: &mut Cpu, ram: &mut Memory, condition: JumpCondition) -> ExecutionStep {
+fn execute_jump(cpu: &mut Cpu, memory_bus: &mut Memory, condition: JumpCondition) -> ExecutionStep {
     let condition_met = check_jump_condition(cpu, condition);
 
     if condition_met {
-        let address = ram.read16(cpu.registers.program_counter + 1);
+        let address = memory_bus.read16(cpu.registers.program_counter + 1);
         ExecutionStep::new(address, 4)
     } else {
         ExecutionStep::new(cpu.registers.program_counter.overflowing_add(3).0, 3)
@@ -626,13 +658,13 @@ fn execute_hl_jump(cpu: &mut Cpu) -> ExecutionStep {
 
 fn execute_relative_jump(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     condition: JumpCondition,
 ) -> ExecutionStep {
     let condition_met = check_jump_condition(cpu, condition);
 
     if condition_met {
-        let offset = ram.read_signed(cpu.registers.program_counter + 1);
+        let offset = memory_bus.read_signed(cpu.registers.program_counter + 1);
 
         let address = cpu.registers.program_counter.wrapping_add(offset as u16);
         ExecutionStep::new(address.wrapping_add(2), 3)
@@ -643,7 +675,7 @@ fn execute_relative_jump(
 
 fn exeute_load(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     destination: LoadTarget,
     source: LoadTarget,
 ) -> ExecutionStep {
@@ -655,10 +687,10 @@ fn exeute_load(
         LoadTarget::E => cpu.registers.e,
         LoadTarget::H => cpu.registers.h,
         LoadTarget::L => cpu.registers.l,
-        LoadTarget::HL => ram.read(cpu.registers.get_hl()),
+        LoadTarget::HL => memory_bus.read(cpu.registers.get_hl()),
         LoadTarget::ImmediateAddress => {
-            let address = ram.read16(cpu.registers.program_counter + 1);
-            ram.read(address)
+            let address = memory_bus.read16(cpu.registers.program_counter + 1);
+            memory_bus.read(address)
         }
     };
 
@@ -670,10 +702,10 @@ fn exeute_load(
         LoadTarget::E => cpu.registers.e = value,
         LoadTarget::H => cpu.registers.h = value,
         LoadTarget::L => cpu.registers.l = value,
-        LoadTarget::HL => ram.write(cpu.registers.get_hl(), value),
+        LoadTarget::HL => memory_bus.write(cpu.registers.get_hl(), value),
         LoadTarget::ImmediateAddress => {
-            let address = ram.read16(cpu.registers.program_counter + 1);
-            ram.write(address, value)
+            let address = memory_bus.read16(cpu.registers.program_counter + 1);
+            memory_bus.write(address, value)
         }
     };
 
@@ -700,10 +732,10 @@ fn exeute_load(
 
 fn execute_load_immediate(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     destination: LoadTarget,
 ) -> ExecutionStep {
-    let value = ram.read(cpu.registers.program_counter + 1);
+    let value = memory_bus.read(cpu.registers.program_counter + 1);
 
     match destination {
         LoadTarget::A => cpu.registers.a = value,
@@ -713,7 +745,7 @@ fn execute_load_immediate(
         LoadTarget::E => cpu.registers.e = value,
         LoadTarget::H => cpu.registers.h = value,
         LoadTarget::L => cpu.registers.l = value,
-        LoadTarget::HL => ram.write(cpu.registers.get_hl(), value),
+        LoadTarget::HL => memory_bus.write(cpu.registers.get_hl(), value),
         LoadTarget::ImmediateAddress => (),
     };
 
@@ -728,25 +760,25 @@ fn execute_load_immediate(
 
 fn execute_read_from_ram(
     cpu: &mut Cpu,
-    ram: &mut Memory,
-    target: RamAddressRegistry,
+    memory_bus: &mut Memory,
+    target: MemoryAddressRegistry,
 ) -> ExecutionStep {
     let address = match target {
-        RamAddressRegistry::BC => cpu.registers.get_bc(),
-        RamAddressRegistry::DE => cpu.registers.get_de(),
-        RamAddressRegistry::HLPlus => {
+        MemoryAddressRegistry::BC => cpu.registers.get_bc(),
+        MemoryAddressRegistry::DE => cpu.registers.get_de(),
+        MemoryAddressRegistry::HLPlus => {
             let hl = cpu.registers.get_hl();
             cpu.registers.set_hl(hl.wrapping_add(1));
             hl
         }
-        RamAddressRegistry::HLMinus => {
+        MemoryAddressRegistry::HLMinus => {
             let hl = cpu.registers.get_hl();
             cpu.registers.set_hl(hl.wrapping_sub(1));
             hl
         }
     };
 
-    let value = ram.read(address);
+    let value = memory_bus.read(address);
     cpu.registers.a = value;
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
@@ -754,18 +786,18 @@ fn execute_read_from_ram(
 
 fn execute_write_to_ram(
     cpu: &mut Cpu,
-    ram: &mut Memory,
-    target: RamAddressRegistry,
+    memory_bus: &mut Memory,
+    target: MemoryAddressRegistry,
 ) -> ExecutionStep {
     let address = match target {
-        RamAddressRegistry::BC => cpu.registers.get_bc(),
-        RamAddressRegistry::DE => cpu.registers.get_de(),
-        RamAddressRegistry::HLPlus => {
+        MemoryAddressRegistry::BC => cpu.registers.get_bc(),
+        MemoryAddressRegistry::DE => cpu.registers.get_de(),
+        MemoryAddressRegistry::HLPlus => {
             let hl = cpu.registers.get_hl();
             cpu.registers.set_hl(hl.wrapping_add(1));
             hl
         }
-        RamAddressRegistry::HLMinus => {
+        MemoryAddressRegistry::HLMinus => {
             let hl = cpu.registers.get_hl();
             cpu.registers.set_hl(hl.wrapping_sub(1));
             hl
@@ -773,25 +805,28 @@ fn execute_write_to_ram(
     };
 
     let value = cpu.registers.a;
-    ram.write(address, value);
+    memory_bus.write(address, value);
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
 }
 
-fn execute_write_to_ram_from_stack_pointer(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
-    let address = ram.read16(cpu.registers.program_counter.wrapping_add(1));
+fn execute_write_to_ram_from_stack_pointer(
+    cpu: &mut Cpu,
+    memory_bus: &mut Memory,
+) -> ExecutionStep {
+    let address = memory_bus.read16(cpu.registers.program_counter.wrapping_add(1));
 
-    ram.write16(address, cpu.registers.stack_pointer);
+    memory_bus.write16(address, cpu.registers.stack_pointer);
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(3), 5)
 }
 
 fn execute_load_immediate16(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     target: LoadTarget16,
 ) -> ExecutionStep {
-    let value = ram.read16(cpu.registers.program_counter + 1);
+    let value = memory_bus.read16(cpu.registers.program_counter + 1);
 
     match target {
         LoadTarget16::BC => cpu.registers.set_bc(value),
@@ -803,7 +838,11 @@ fn execute_load_immediate16(
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(3), 3)
 }
 
-fn execute_increment(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
+fn execute_increment(
+    cpu: &mut Cpu,
+    memory_bus: &mut Memory,
+    target: ArithmeticTarget,
+) -> ExecutionStep {
     fn increment(cpu: &mut Cpu, value: u8) -> u8 {
         let new_value = value.wrapping_add(1);
 
@@ -814,7 +853,7 @@ fn execute_increment(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) 
         new_value
     }
 
-    let hl_value = ram.read(cpu.registers.get_hl());
+    let hl_value = memory_bus.read(cpu.registers.get_hl());
 
     match target {
         ArithmeticTarget::A => cpu.registers.a = increment(cpu, cpu.registers.a),
@@ -826,7 +865,7 @@ fn execute_increment(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) 
         ArithmeticTarget::L => cpu.registers.l = increment(cpu, cpu.registers.l),
         ArithmeticTarget::HL => {
             let new_value = increment(cpu, hl_value);
-            ram.write(cpu.registers.get_hl(), new_value)
+            memory_bus.write(cpu.registers.get_hl(), new_value)
         }
         ArithmeticTarget::Immediate => (),
     };
@@ -840,7 +879,11 @@ fn execute_increment(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) 
     )
 }
 
-fn execute_decrement(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) -> ExecutionStep {
+fn execute_decrement(
+    cpu: &mut Cpu,
+    memory_bus: &mut Memory,
+    target: ArithmeticTarget,
+) -> ExecutionStep {
     fn decrement(cpu: &mut Cpu, value: u8) -> u8 {
         let new_value = value.wrapping_sub(1);
 
@@ -851,7 +894,7 @@ fn execute_decrement(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) 
         new_value
     }
 
-    let hl_value = ram.read(cpu.registers.get_hl());
+    let hl_value = memory_bus.read(cpu.registers.get_hl());
 
     match target {
         ArithmeticTarget::A => cpu.registers.a = decrement(cpu, cpu.registers.a),
@@ -863,7 +906,7 @@ fn execute_decrement(cpu: &mut Cpu, ram: &mut Memory, target: ArithmeticTarget) 
         ArithmeticTarget::L => cpu.registers.l = decrement(cpu, cpu.registers.l),
         ArithmeticTarget::HL => {
             let new_value = decrement(cpu, hl_value);
-            ram.write(cpu.registers.get_hl(), new_value)
+            memory_bus.write(cpu.registers.get_hl(), new_value)
         }
         ArithmeticTarget::Immediate => (),
     };
@@ -1031,7 +1074,7 @@ fn execute_enable_interrupts(cpu: &mut Cpu) -> ExecutionStep {
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
 }
 
-fn execute_halt(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
+fn execute_halt(cpu: &mut Cpu) -> ExecutionStep {
     ExecutionStep::new_with_state(
         cpu.registers.program_counter.wrapping_add(1),
         1,
@@ -1039,7 +1082,7 @@ fn execute_halt(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
     )
 }
 
-fn execute_push(cpu: &mut Cpu, ram: &mut Memory, target: PushPopTarget) -> ExecutionStep {
+fn execute_push(cpu: &mut Cpu, memory_bus: &mut Memory, target: PushPopTarget) -> ExecutionStep {
     let value = match target {
         PushPopTarget::BC => cpu.registers.get_bc(),
         PushPopTarget::DE => cpu.registers.get_de(),
@@ -1047,13 +1090,13 @@ fn execute_push(cpu: &mut Cpu, ram: &mut Memory, target: PushPopTarget) -> Execu
         PushPopTarget::AF => cpu.registers.get_af(),
     };
 
-    cpu.push(ram, value);
+    cpu.push(memory_bus, value);
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 4)
 }
 
-fn execute_pop(cpu: &mut Cpu, ram: &mut Memory, target: PushPopTarget) -> ExecutionStep {
-    let value = cpu.pop(ram);
+fn execute_pop(cpu: &mut Cpu, memory_bus: &mut Memory, target: PushPopTarget) -> ExecutionStep {
+    let value = cpu.pop(memory_bus);
 
     match target {
         PushPopTarget::BC => cpu.registers.set_bc(value),
@@ -1065,31 +1108,31 @@ fn execute_pop(cpu: &mut Cpu, ram: &mut Memory, target: PushPopTarget) -> Execut
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 3)
 }
 
-fn execute_call(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
+fn execute_call(cpu: &mut Cpu, memory_bus: &mut Memory) -> ExecutionStep {
     let pc = cpu.registers.program_counter;
-    cpu.push(ram, pc.wrapping_add(3));
+    cpu.push(memory_bus, pc.wrapping_add(3));
 
-    let address = ram.read16(cpu.registers.program_counter.wrapping_add(1));
+    let address = memory_bus.read16(cpu.registers.program_counter.wrapping_add(1));
 
     ExecutionStep::new(address, 6)
 }
 
 fn execute_call_condition(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     condition: JumpCondition,
 ) -> ExecutionStep {
     let condition_met = check_jump_condition(cpu, condition);
 
     if condition_met {
-        execute_call(cpu, ram)
+        execute_call(cpu, memory_bus)
     } else {
         ExecutionStep::new(cpu.registers.program_counter.wrapping_add(3), 3)
     }
 }
 
-fn execute_return(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
-    let address = cpu.pop(ram);
+fn execute_return(cpu: &mut Cpu, memory_bus: &mut Memory) -> ExecutionStep {
+    let address = cpu.pop(memory_bus);
     cpu.registers.program_counter = address;
 
     ExecutionStep::new(cpu.registers.program_counter, 4)
@@ -1097,27 +1140,27 @@ fn execute_return(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
 
 fn execute_return_condition(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     condition: JumpCondition,
 ) -> ExecutionStep {
     let condition_met = check_jump_condition(cpu, condition);
 
     if condition_met {
-        let pc = execute_return(cpu, ram).program_counter;
+        let pc = execute_return(cpu, memory_bus).program_counter;
         ExecutionStep::new(pc, 4)
     } else {
         ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
     }
 }
 
-fn execute_return_and_enable_interrupts(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
+fn execute_return_and_enable_interrupts(cpu: &mut Cpu, memory_bus: &mut Memory) -> ExecutionStep {
     execute_enable_interrupts(cpu);
-    execute_return(cpu, ram)
+    execute_return(cpu, memory_bus)
 }
 
-fn execute_restart(cpu: &mut Cpu, ram: &mut Memory, address: u8) -> ExecutionStep {
+fn execute_restart(cpu: &mut Cpu, memory_bus: &mut Memory, address: u8) -> ExecutionStep {
     let pc = cpu.registers.program_counter;
-    cpu.push(ram, pc.wrapping_add(1));
+    cpu.push(memory_bus, pc.wrapping_add(1));
 
     ExecutionStep::new(address as u16, 4)
 }
@@ -1131,36 +1174,37 @@ fn execute_extended_opcode(cpu: &mut Cpu) -> ExecutionStep {
     }
 }
 
-fn execute_load_h(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
-    let half_address = ram.read(cpu.registers.program_counter.wrapping_add(1));
-    cpu.registers.a = ram.read(half_address as u16 + 0xFF00);
+fn execute_load_h(cpu: &mut Cpu, memory_bus: &mut Memory) -> ExecutionStep {
+    let half_address = memory_bus.read(cpu.registers.program_counter.wrapping_add(1));
+    cpu.registers.a = memory_bus.read(half_address as u16 + 0xFF00);
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(2), 3)
 }
 
-fn execute_write_h(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
-    let half_address = ram.read(cpu.registers.program_counter.wrapping_add(1));
-    ram.write(half_address as u16 + 0xFF00, cpu.registers.a);
+fn execute_write_h(cpu: &mut Cpu, memory_bus: &mut Memory) -> ExecutionStep {
+    let half_address = memory_bus.read(cpu.registers.program_counter.wrapping_add(1));
+    memory_bus.write(half_address as u16 + 0xFF00, cpu.registers.a);
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(2), 3)
 }
 
-fn execute_load_hc(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
+fn execute_load_hc(cpu: &mut Cpu, memory_bus: &mut Memory) -> ExecutionStep {
     let half_address = cpu.registers.c;
-    cpu.registers.a = ram.read(half_address as u16 + 0xFF00);
+    cpu.registers.a = memory_bus.read(half_address as u16 + 0xFF00);
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
 }
 
-fn execute_write_hc(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
+fn execute_write_hc(cpu: &mut Cpu, memory_bus: &mut Memory) -> ExecutionStep {
     let half_address = cpu.registers.c;
-    ram.write(half_address as u16 + 0xFF00, cpu.registers.a);
+    memory_bus.write(half_address as u16 + 0xFF00, cpu.registers.a);
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
 }
 
-fn execute_add_sp(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
-    let offset = ram.read_signed(cpu.registers.program_counter.wrapping_add(1)) as i16 as u16;
+fn execute_add_sp(cpu: &mut Cpu, memory_bus: &mut Memory) -> ExecutionStep {
+    let offset =
+        memory_bus.read_signed(cpu.registers.program_counter.wrapping_add(1)) as i16 as u16;
     let sp = cpu.registers.stack_pointer;
 
     cpu.registers.stack_pointer = sp.wrapping_add(offset);
@@ -1179,8 +1223,8 @@ fn execute_load_sp_hl(cpu: &mut Cpu) -> ExecutionStep {
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
 }
 
-fn execute_load_hl_sp(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
-    execute_add_sp(cpu, ram);
+fn execute_load_hl_sp(cpu: &mut Cpu, memory_bus: &mut Memory) -> ExecutionStep {
+    execute_add_sp(cpu, memory_bus);
     cpu.registers.set_hl(cpu.registers.stack_pointer);
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
@@ -1188,7 +1232,7 @@ fn execute_load_hl_sp(cpu: &mut Cpu, ram: &mut Memory) -> ExecutionStep {
 
 fn execute_rotate_left(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     target: ByteArithmeticTarget,
 ) -> ExecutionStep {
     fn rotate_left(cpu: &mut Cpu, value: u8) -> u8 {
@@ -1202,12 +1246,12 @@ fn execute_rotate_left(
         new_value
     }
 
-    execute_byte_arithmetic(cpu, ram, &target, rotate_left)
+    execute_byte_arithmetic(cpu, memory_bus, &target, rotate_left)
 }
 
 fn execute_rotate_left_carry(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     target: ByteArithmeticTarget,
 ) -> ExecutionStep {
     fn rotate_left_carry(cpu: &mut Cpu, value: u8) -> u8 {
@@ -1222,12 +1266,12 @@ fn execute_rotate_left_carry(
         new_value
     }
 
-    execute_byte_arithmetic(cpu, ram, &target, rotate_left_carry)
+    execute_byte_arithmetic(cpu, memory_bus, &target, rotate_left_carry)
 }
 
 fn execute_rotate_right(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     target: ByteArithmeticTarget,
 ) -> ExecutionStep {
     fn rotate_right(cpu: &mut Cpu, value: u8) -> u8 {
@@ -1241,12 +1285,12 @@ fn execute_rotate_right(
         new_value
     }
 
-    execute_byte_arithmetic(cpu, ram, &target, rotate_right)
+    execute_byte_arithmetic(cpu, memory_bus, &target, rotate_right)
 }
 
 fn execute_rotate_right_carry(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     target: ByteArithmeticTarget,
 ) -> ExecutionStep {
     fn rotate_left_carry(cpu: &mut Cpu, value: u8) -> u8 {
@@ -1261,12 +1305,12 @@ fn execute_rotate_right_carry(
         new_value
     }
 
-    execute_byte_arithmetic(cpu, ram, &target, rotate_left_carry)
+    execute_byte_arithmetic(cpu, memory_bus, &target, rotate_left_carry)
 }
 
 fn execute_shift_left_arithmetic(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     target: ByteArithmeticTarget,
 ) -> ExecutionStep {
     fn shift_left(cpu: &mut Cpu, value: u8) -> u8 {
@@ -1280,12 +1324,12 @@ fn execute_shift_left_arithmetic(
         new_value
     }
 
-    execute_byte_arithmetic(cpu, ram, &target, shift_left)
+    execute_byte_arithmetic(cpu, memory_bus, &target, shift_left)
 }
 
 fn execute_shift_right_arithmetic(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     target: ByteArithmeticTarget,
 ) -> ExecutionStep {
     fn shift_right(cpu: &mut Cpu, value: u8) -> u8 {
@@ -1300,10 +1344,14 @@ fn execute_shift_right_arithmetic(
         new_value
     }
 
-    execute_byte_arithmetic(cpu, ram, &target, shift_right)
+    execute_byte_arithmetic(cpu, memory_bus, &target, shift_right)
 }
 
-fn execute_swap(cpu: &mut Cpu, ram: &mut Memory, target: ByteArithmeticTarget) -> ExecutionStep {
+fn execute_swap(
+    cpu: &mut Cpu,
+    rmemory_busm: &mut Memory,
+    target: ByteArithmeticTarget,
+) -> ExecutionStep {
     fn swap(cpu: &mut Cpu, value: u8) -> u8 {
         let new_value = (value >> 4) | (value << 4);
 
@@ -1315,12 +1363,12 @@ fn execute_swap(cpu: &mut Cpu, ram: &mut Memory, target: ByteArithmeticTarget) -
         new_value
     }
 
-    execute_byte_arithmetic(cpu, ram, &target, swap)
+    execute_byte_arithmetic(cpu, rmemory_busm, &target, swap)
 }
 
 fn execute_shift_right_logic(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     target: ByteArithmeticTarget,
 ) -> ExecutionStep {
     fn shift_right_logic(cpu: &mut Cpu, value: u8) -> u8 {
@@ -1334,16 +1382,16 @@ fn execute_shift_right_logic(
         new_value
     }
 
-    execute_byte_arithmetic(cpu, ram, &target, shift_right_logic)
+    execute_byte_arithmetic(cpu, memory_bus, &target, shift_right_logic)
 }
 
 fn execute_test_bit(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     bit_target: BitOpTarget,
     target: ByteArithmeticTarget,
 ) -> ExecutionStep {
-    let value = read_byte_arithmetic_target(cpu, ram, &target);
+    let value = read_byte_arithmetic_target(cpu, memory_bus, &target);
 
     let bit_is_zero = match bit_target {
         BitOpTarget::Bit0 => value & 0x01,
@@ -1371,11 +1419,11 @@ fn execute_test_bit(
 
 fn execute_reset_bit(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     bit_target: BitOpTarget,
     target: ByteArithmeticTarget,
 ) -> ExecutionStep {
-    let value = read_byte_arithmetic_target(cpu, ram, &target);
+    let value = read_byte_arithmetic_target(cpu, memory_bus, &target);
 
     let value = match bit_target {
         BitOpTarget::Bit0 => value & 0b1111_1110,
@@ -1388,7 +1436,7 @@ fn execute_reset_bit(
         BitOpTarget::Bit7 => value & 0b0111_1111,
     };
 
-    write_byte_arithmetic_target(cpu, ram, &target, value);
+    write_byte_arithmetic_target(cpu, memory_bus, &target, value);
 
     ExecutionStep::new(
         cpu.registers.program_counter.wrapping_add(1),
@@ -1401,11 +1449,11 @@ fn execute_reset_bit(
 
 fn execute_set_bit(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     bit_target: BitOpTarget,
     target: ByteArithmeticTarget,
 ) -> ExecutionStep {
-    let value = read_byte_arithmetic_target(cpu, ram, &target);
+    let value = read_byte_arithmetic_target(cpu, memory_bus, &target);
 
     let value = match bit_target {
         BitOpTarget::Bit0 => value | 0b0000_0001,
@@ -1418,7 +1466,7 @@ fn execute_set_bit(
         BitOpTarget::Bit7 => value | 0b1000_0000,
     };
 
-    write_byte_arithmetic_target(cpu, ram, &target, value);
+    write_byte_arithmetic_target(cpu, memory_bus, &target, value);
 
     ExecutionStep::new(
         cpu.registers.program_counter.wrapping_add(1),
@@ -1431,7 +1479,7 @@ fn execute_set_bit(
 
 fn execute_interrupts(
     cpu: &mut Cpu,
-    ram: &mut Memory,
+    memory_bus: &mut Memory,
     interrupts: &mut Interrupts,
 ) -> Option<ExecutionStep> {
     if !cpu.ime {
@@ -1456,9 +1504,9 @@ fn execute_interrupts(
         cpu.ime = false;
 
         cpu.registers.stack_pointer = cpu.registers.stack_pointer.wrapping_sub(2);
-        ram.write16(cpu.registers.stack_pointer, cpu.registers.program_counter);
+        memory_bus.write16(cpu.registers.stack_pointer, cpu.registers.program_counter);
 
-        interrupts.ack_interrupt(interrupt, ram);
+        interrupts.ack_interrupt(interrupt, memory_bus);
         ExecutionStep::new(target, 3)
     })
 }

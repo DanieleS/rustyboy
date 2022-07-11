@@ -6,24 +6,24 @@ use crate::{cartridge::Cartridge, cpu::Cpu, memory::Memory, ppu::Ppu};
 pub struct Hardware {
     cpu: Cpu,
     ppu: Ppu,
-    ram: Memory,
+    memory_bus: Memory,
     joypad: JoypadState,
     next_is_extended_instruction: bool,
 }
 
 impl Hardware {
     pub fn new(cartridge: Cartridge) -> Hardware {
-        let mut ram = Memory::new();
+        let mut memory_bus = Memory::new();
         let cpu = Cpu::new();
         let ppu = Ppu::new();
         let joypad = JoypadState::new();
 
-        ram.load_rom(&cartridge.data);
+        memory_bus.load_rom(&cartridge.data);
 
         Hardware {
             cpu,
             ppu,
-            ram,
+            memory_bus,
             joypad,
             next_is_extended_instruction: false,
         }
@@ -36,16 +36,16 @@ impl Hardware {
         loop {
             let (elapsed_cycles, next_is_extended, _) = self
                 .cpu
-                .step(&mut self.ram, self.next_is_extended_instruction);
+                .step(&mut self.memory_bus, self.next_is_extended_instruction);
 
             self.next_is_extended_instruction = next_is_extended;
 
-            self.joypad.update_keys_status(&mut self.ram);
+            self.joypad.update_keys_status(&mut self.memory_bus);
 
             let mut buffer: Option<[Color; 160 * 144]> = None;
             for _ in 0..(elapsed_cycles * 4) {
-                if let Some(interrupt) = self.ppu.step(&self.ram) {
-                    Interrupts::dispatch_interrupt(interrupt, &mut self.ram);
+                if let Some(interrupt) = self.ppu.step(&self.memory_bus) {
+                    Interrupts::dispatch_interrupt(interrupt, &mut self.memory_bus);
 
                     if let Interrupt::VBlank = interrupt {
                         buffer = Some(self.ppu.buffer);
@@ -53,12 +53,16 @@ impl Hardware {
                 }
             }
 
-            if self.ram.io_registers.timer_step(elapsed_cycles as i8) {
-                Interrupts::dispatch_interrupt(Interrupt::Timer, &mut self.ram);
+            if self
+                .memory_bus
+                .io_registers
+                .timer_step(elapsed_cycles as i8)
+            {
+                Interrupts::dispatch_interrupt(Interrupt::Timer, &mut self.memory_bus);
             }
 
-            self.ppu.dma_transfer(&mut self.ram);
-            self.ppu.update_memory(&mut self.ram);
+            self.ppu.dma_transfer(&mut self.memory_bus);
+            self.ppu.update_memory(&mut self.memory_bus);
 
             if let Some(buffer) = buffer {
                 return buffer;

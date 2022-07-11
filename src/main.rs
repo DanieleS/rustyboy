@@ -77,7 +77,7 @@ fn handle_key_event(input: KeyboardInput, hardware: &mut Hardware) {
         } => {
             let key = match key {
                 VirtualKeyCode::A => Some(JoypadKey::A),
-                VirtualKeyCode::B => Some(JoypadKey::B),
+                VirtualKeyCode::S => Some(JoypadKey::B),
                 VirtualKeyCode::Back => Some(JoypadKey::Select),
                 VirtualKeyCode::Return => Some(JoypadKey::Start),
                 VirtualKeyCode::Up => Some(JoypadKey::Up),

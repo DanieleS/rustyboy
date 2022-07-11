@@ -104,15 +104,15 @@ impl std::convert::From<&mut Interrupts> for (u8, u8) {
 }
 
 impl Interrupts {
-    pub fn get_interrupts(ram: &Memory) -> Self {
-        let enabled = ram.read(INTERRUPT_ENABLED_ADDRESS);
-        let flag = ram.read(INTERRUPT_FLAG_ADDRESS);
+    pub fn get_interrupts(memory_bus: &Memory) -> Self {
+        let enabled = memory_bus.read(INTERRUPT_ENABLED_ADDRESS);
+        let flag = memory_bus.read(INTERRUPT_FLAG_ADDRESS);
 
         Interrupts::from((enabled, flag))
     }
 
-    pub fn dispatch_interrupt(interrupt: Interrupt, ram: &mut Memory) {
-        let mut interrupts = Interrupts::get_interrupts(ram);
+    pub fn dispatch_interrupt(interrupt: Interrupt, memory_bus: &mut Memory) {
+        let mut interrupts = Interrupts::get_interrupts(memory_bus);
         match interrupt {
             Interrupt::VBlank => {
                 interrupts.vblank.flag = true;
@@ -132,7 +132,7 @@ impl Interrupts {
         }
 
         let (_, flag) = <(u8, u8)>::from(&mut interrupts);
-        ram.write(INTERRUPT_FLAG_ADDRESS, flag);
+        memory_bus.write(INTERRUPT_FLAG_ADDRESS, flag);
     }
 
     pub fn get_highest_priority_interrupt(&self) -> Option<Interrupt> {
@@ -155,7 +155,7 @@ impl Interrupts {
         highest_priority
     }
 
-    pub fn ack_interrupt(&mut self, interrupt: Interrupt, ram: &mut Memory) {
+    pub fn ack_interrupt(&mut self, interrupt: Interrupt, memory_bus: &mut Memory) {
         match interrupt {
             Interrupt::VBlank => self.vblank.flag = false,
             Interrupt::LCDStat => self.lcd_stat.flag = false,
@@ -165,7 +165,7 @@ impl Interrupts {
         }
 
         let (_, flag) = <(u8, u8)>::from(self);
-        ram.write(INTERRUPT_FLAG_ADDRESS, flag);
+        memory_bus.write(INTERRUPT_FLAG_ADDRESS, flag);
     }
 
     pub fn is_empty(&self) -> bool {

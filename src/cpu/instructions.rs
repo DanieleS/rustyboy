@@ -9,9 +9,9 @@ pub enum Instruction {
     WriteH,
     LoadHC,
     WriteHC,
-    ReadFromRam(RamAddressRegistry),
+    ReadFromRam(MemoryAddressRegistry),
     WriteToRamFromStackPointer,
-    WriteToRam(RamAddressRegistry),
+    WriteToRam(MemoryAddressRegistry),
     Add(ArithmeticTarget),
     AddCarry(ArithmeticTarget),
     Subtract(ArithmeticTarget),
@@ -236,14 +236,14 @@ impl Instruction {
             0x1e => Some(Instruction::LoadImmediate(LoadTarget::E)),
             0x2e => Some(Instruction::LoadImmediate(LoadTarget::L)),
             0x3e => Some(Instruction::LoadImmediate(LoadTarget::A)),
-            0x0a => Some(Instruction::ReadFromRam(RamAddressRegistry::BC)),
-            0x1a => Some(Instruction::ReadFromRam(RamAddressRegistry::DE)),
-            0x2a => Some(Instruction::ReadFromRam(RamAddressRegistry::HLPlus)),
-            0x3a => Some(Instruction::ReadFromRam(RamAddressRegistry::HLMinus)),
-            0x02 => Some(Instruction::WriteToRam(RamAddressRegistry::BC)),
-            0x12 => Some(Instruction::WriteToRam(RamAddressRegistry::DE)),
-            0x22 => Some(Instruction::WriteToRam(RamAddressRegistry::HLPlus)),
-            0x32 => Some(Instruction::WriteToRam(RamAddressRegistry::HLMinus)),
+            0x0a => Some(Instruction::ReadFromRam(MemoryAddressRegistry::BC)),
+            0x1a => Some(Instruction::ReadFromRam(MemoryAddressRegistry::DE)),
+            0x2a => Some(Instruction::ReadFromRam(MemoryAddressRegistry::HLPlus)),
+            0x3a => Some(Instruction::ReadFromRam(MemoryAddressRegistry::HLMinus)),
+            0x02 => Some(Instruction::WriteToRam(MemoryAddressRegistry::BC)),
+            0x12 => Some(Instruction::WriteToRam(MemoryAddressRegistry::DE)),
+            0x22 => Some(Instruction::WriteToRam(MemoryAddressRegistry::HLPlus)),
+            0x32 => Some(Instruction::WriteToRam(MemoryAddressRegistry::HLMinus)),
             0x08 => Some(Instruction::WriteToRamFromStackPointer),
             0x01 => Some(Instruction::LoadImmediate16(LoadTarget16::BC)),
             0x11 => Some(Instruction::LoadImmediate16(LoadTarget16::DE)),
@@ -1235,7 +1235,7 @@ pub enum LoadTarget {
 }
 
 #[derive(Debug)]
-pub enum RamAddressRegistry {
+pub enum MemoryAddressRegistry {
     BC,
     DE,
     HLPlus,

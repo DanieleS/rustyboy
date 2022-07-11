@@ -35,8 +35,8 @@ impl JoypadState {
         self.keys.retain(|&k| k != key);
     }
 
-    pub fn update_keys_status(&self, ram: &mut Memory) {
-        let joypad_state = ram.read(JOYPAD_STATE_ADDRESS);
+    pub fn update_keys_status(&self, memory_bus: &mut Memory) {
+        let joypad_state = memory_bus.read(JOYPAD_STATE_ADDRESS);
 
         let new_state = if !joypad_state & 0b0010_0000 != 0 {
             // Action buttons
@@ -79,6 +79,6 @@ impl JoypadState {
         //     println!("New state: {:b}", new_state);
         // }
 
-        ram.write(JOYPAD_STATE_ADDRESS, new_state)
+        memory_bus.write(JOYPAD_STATE_ADDRESS, new_state)
     }
 }
