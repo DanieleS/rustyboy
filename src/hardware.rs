@@ -79,8 +79,5 @@ impl Hardware {
 impl Drop for Hardware {
     fn drop(&mut self) {
         println!("CPU: {}", self.cpu.registers);
-        print_array_16(&self.cpu.last_pc, 16);
-        println!();
-        println!("{:?}", self.memory_bus.work_ram);
     }
 }
