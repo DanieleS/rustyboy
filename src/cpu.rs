@@ -116,11 +116,11 @@ impl Display for Registers {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
             f,
-            "AF: {:04X} BC: {:04X} DE: {:04X} HL: {:04X} SP: {:04X} PC: {:04X}",
-            self.get_af(),
+            "BC={:04X} DE={:04X} HL={:04X} AF={:04X} SP={:04X} PC={:04X}",
             self.get_bc(),
             self.get_de(),
             self.get_hl(),
+            self.get_af(),
             self.stack_pointer,
             self.program_counter
         )
@@ -196,6 +196,7 @@ impl Cpu {
 
         let opcode = memory_bus.read(self.registers.program_counter);
         let instruction = Instruction::from_byte(opcode);
+
         let ExecutionStep {
             program_counter,
             cycles,
@@ -657,6 +658,7 @@ fn execute_relative_jump(
         let offset = memory_bus.read_signed(cpu.registers.program_counter + 1);
 
         let address = cpu.registers.program_counter.wrapping_add(offset as u16);
+
         ExecutionStep::new(address.wrapping_add(2), 3)
     } else {
         ExecutionStep::new(cpu.registers.program_counter.overflowing_add(2).0, 2)
@@ -980,7 +982,7 @@ fn execute_rotate_right_a(cpu: &mut Cpu) -> ExecutionStep {
 
 fn execute_rotate_right_carry_a(cpu: &mut Cpu) -> ExecutionStep {
     let value = cpu.registers.a;
-    let new_value = (value >> 1) | (cpu.registers.f.carry as u8);
+    let new_value = (value >> 1) | ((cpu.registers.f.carry as u8) << 7);
 
     cpu.registers.f.zero = false;
     cpu.registers.f.subtract = false;

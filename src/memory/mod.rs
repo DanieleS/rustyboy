@@ -69,7 +69,7 @@ pub struct Memory {
     cartridge_banks_1_n: Zipper<GeneralPourposeMemoryBank<0x4000>>,
     vram: GeneralPourposeMemoryBank<0x2000>,
     external_ram: Zipper<GeneralPourposeMemoryBank<0x2000>>,
-    work_ram: GeneralPourposeMemoryBank<0x1000>,
+    pub work_ram: GeneralPourposeMemoryBank<0x1000>,
     work_ram_1_n: Zipper<GeneralPourposeMemoryBank<0x1000>>,
     oam: GeneralPourposeMemoryBank<0x100>,
     pub io_registers: IOMemoryBank,

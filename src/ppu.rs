@@ -240,15 +240,3 @@ impl Ppu {
         sprites
     }
 }
-
-pub fn print_array(array: &[u8], width: usize, start_from: u16) {
-    for i in 0..array.len() {
-        if i % width == 0 {
-            println!();
-            print!("{:04x}: ", start_from + i as u16);
-        }
-        if i % width < 200 {
-            print!("{:02x} ", array[i]);
-        }
-    }
-}

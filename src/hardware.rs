@@ -1,6 +1,7 @@
 use crate::cpu::interrupts::{Interrupt, Interrupts};
 use crate::joypad::{JoypadKey, JoypadState};
 use crate::ppu::palette::Color;
+use crate::utils::array::print_array_16;
 use crate::{cartridge::Cartridge, cpu::Cpu, memory::Memory, ppu::Ppu};
 
 pub struct Hardware {
@@ -58,6 +59,8 @@ impl Hardware {
             self.ppu.dma_transfer(&mut self.memory_bus);
             self.ppu.update_memory(&mut self.memory_bus);
 
+            // println!("{}", self.cpu.registers);
+
             if let Some(buffer) = buffer {
                 return buffer;
             }
@@ -76,5 +79,8 @@ impl Hardware {
 impl Drop for Hardware {
     fn drop(&mut self) {
         println!("CPU: {}", self.cpu.registers);
+        print_array_16(&self.cpu.last_pc, 16);
+        println!();
+        println!("{:?}", self.memory_bus.work_ram);
     }
 }
