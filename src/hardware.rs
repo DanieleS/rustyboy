@@ -8,7 +8,6 @@ pub struct Hardware {
     ppu: Ppu,
     memory_bus: Memory,
     joypad: JoypadState,
-    next_is_extended_instruction: bool,
 }
 
 impl Hardware {
@@ -25,7 +24,6 @@ impl Hardware {
             ppu,
             memory_bus,
             joypad,
-            next_is_extended_instruction: false,
         }
     }
 
@@ -34,11 +32,7 @@ impl Hardware {
         let mut instructions = 10;
 
         loop {
-            let (elapsed_cycles, next_is_extended, _) = self
-                .cpu
-                .step(&mut self.memory_bus, self.next_is_extended_instruction);
-
-            self.next_is_extended_instruction = next_is_extended;
+            let (elapsed_cycles, _) = self.cpu.step(&mut self.memory_bus);
 
             self.joypad.update_keys_status(&mut self.memory_bus);
 

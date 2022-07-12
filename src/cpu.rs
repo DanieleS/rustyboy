@@ -22,7 +22,6 @@ enum ExecutionState {
 struct ExecutionStep {
     program_counter: u16,
     cycles: u8,
-    next_is_extended_instruction: bool,
     state: ExecutionState,
 }
 
@@ -31,7 +30,6 @@ impl ExecutionStep {
         ExecutionStep {
             program_counter,
             cycles,
-            next_is_extended_instruction: false,
             state: ExecutionState::Running,
         }
     }
@@ -40,7 +38,6 @@ impl ExecutionStep {
         ExecutionStep {
             program_counter,
             cycles,
-            next_is_extended_instruction: false,
             state,
         }
     }
@@ -180,35 +177,29 @@ impl Cpu {
         }
     }
 
-    pub fn step(
-        &mut self,
-        memory_bus: &mut Memory,
-        is_extended_instruction: bool,
-    ) -> (u8, bool, bool) {
+    pub fn step(&mut self, memory_bus: &mut Memory) -> (u8, bool) {
         let mut interrupts = Interrupts::get_interrupts(memory_bus);
 
         if let Some(ExecutionStep {
             program_counter,
             cycles,
-            next_is_extended_instruction,
             ..
         }) = execute_interrupts(self, memory_bus, &mut interrupts)
         {
             self.registers.program_counter = program_counter;
-            return (cycles, next_is_extended_instruction, false);
+            return (cycles, false);
         }
 
         if self.halted {
-            return (1, false, true);
+            return (1, true);
         }
 
         let opcode = memory_bus.read(self.registers.program_counter);
-        let instruction = Instruction::from_byte(opcode, is_extended_instruction);
+        let instruction = Instruction::from_byte(opcode);
         let ExecutionStep {
             program_counter,
             cycles,
             state,
-            next_is_extended_instruction: extended_instruction,
         } = if let Some(instruction) = instruction {
             self.execute(memory_bus, instruction)
         } else {
@@ -221,7 +212,6 @@ impl Cpu {
 
         (
             cycles,
-            extended_instruction,
             if let ExecutionState::Halted = state {
                 true
             } else {
@@ -299,7 +289,7 @@ impl Cpu {
                 execute_return_and_enable_interrupts(self, memory_bus)
             }
             Instruction::Restart(address) => execute_restart(self, memory_bus, address),
-            Instruction::ExtendedOpcode => execute_extended_opcode(self),
+            Instruction::ExtendedOpcode => execute_extended_opcode(self, memory_bus),
             Instruction::LoadH => execute_load_h(self, memory_bus),
             Instruction::WriteH => execute_write_h(self, memory_bus),
             Instruction::LoadHC => execute_load_hc(self, memory_bus),
@@ -1165,13 +1155,12 @@ fn execute_restart(cpu: &mut Cpu, memory_bus: &mut Memory, address: u8) -> Execu
     ExecutionStep::new(address as u16, 4)
 }
 
-fn execute_extended_opcode(cpu: &mut Cpu) -> ExecutionStep {
-    ExecutionStep {
-        program_counter: cpu.registers.program_counter.wrapping_add(1),
-        cycles: 0,
-        next_is_extended_instruction: true,
-        state: ExecutionState::Running,
-    }
+fn execute_extended_opcode(cpu: &mut Cpu, memory_bus: &mut Memory) -> ExecutionStep {
+    cpu.registers.program_counter = cpu.registers.program_counter.wrapping_add(1);
+    let opcode = memory_bus.read(cpu.registers.program_counter);
+    let instruction = Instruction::from_byte_extended(opcode);
+
+    cpu.execute(memory_bus, instruction)
 }
 
 fn execute_load_h(cpu: &mut Cpu, memory_bus: &mut Memory) -> ExecutionStep {
