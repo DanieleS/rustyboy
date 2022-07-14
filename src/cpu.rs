@@ -1209,10 +1209,12 @@ fn execute_load_sp_hl(cpu: &mut Cpu) -> ExecutionStep {
 }
 
 fn execute_load_hl_sp(cpu: &mut Cpu, memory_bus: &mut Memory) -> ExecutionStep {
+    let sp = cpu.registers.stack_pointer;
     execute_add_sp(cpu, memory_bus);
     cpu.registers.set_hl(cpu.registers.stack_pointer);
+    cpu.registers.stack_pointer = sp;
 
-    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
+    ExecutionStep::new(cpu.registers.program_counter.wrapping_add(2), 3)
 }
 
 fn execute_rotate_left(
