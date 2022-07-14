@@ -605,10 +605,10 @@ fn execute_add16(cpu: &mut Cpu, target: ArithmeticTarget16) -> ExecutionStep {
     fn add16(cpu: &mut Cpu, value: u16) -> ExecutionStep {
         let hl = cpu.registers.get_hl();
         let result = hl.wrapping_add(value);
-        cpu.registers.f.zero = result == 0;
         cpu.registers.f.subtract = false;
         cpu.registers.f.carry = hl as u32 + value as u32 > 0xFFFF;
         cpu.registers.f.half_carry = test_add_carry_bit(11, hl, value);
+
         cpu.registers.set_hl(result);
 
         ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 2)
