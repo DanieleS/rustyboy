@@ -995,12 +995,10 @@ fn execute_rotate_right_carry_a(cpu: &mut Cpu) -> ExecutionStep {
 }
 
 fn execute_decimal_adjust(cpu: &mut Cpu) -> ExecutionStep {
-    let mut carry = false;
-
     if !cpu.registers.f.subtract {
         if cpu.registers.f.carry || cpu.registers.a > 0x99 {
             cpu.registers.a = cpu.registers.a.wrapping_add(0x60);
-            carry = true;
+            cpu.registers.f.carry = true;
         }
         if cpu.registers.f.half_carry || (cpu.registers.a & 0x0f) > 0x09 {
             cpu.registers.a = cpu.registers.a.wrapping_add(0x06);
