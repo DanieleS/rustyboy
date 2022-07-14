@@ -10,7 +10,7 @@ pub enum ObjectSize {
 pub struct LcdControl {
     enabled: bool,
     window_tile_map_area: bool,
-    window_enabled: bool,
+    pub window_enabled: bool,
     pub background_window_tile_data_area: bool,
     background_tile_map_area: bool,
     pub object_size: ObjectSize,

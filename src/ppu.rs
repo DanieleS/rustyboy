@@ -17,6 +17,8 @@ const LY_ADDRESS: u16 = 0xff44;
 const LYC_ADDRESS: u16 = 0xff45;
 const SCY_ADDRESS: u16 = 0xff42;
 const SCX_ADDRESS: u16 = 0xff43;
+const WY_ADDRESS: u16 = 0xff4a;
+const WX_ADDRESS: u16 = 0xff4b;
 
 pub enum PpuMode {
     HBlank,
@@ -138,24 +140,57 @@ impl Ppu {
         let lcd_control = LcdControl::from(memory_bus.read(LCD_CONTROL_ADDRESS));
         let x_scroll = memory_bus.read(SCX_ADDRESS);
         let y_scroll = memory_bus.read(SCY_ADDRESS);
+        let window_x = memory_bus.read(WX_ADDRESS);
+        let window_y = memory_bus.read(WY_ADDRESS);
 
-        let shifted_scanline = self.scanline.wrapping_add(y_scroll);
+        let bg_shifted_scanline = self.scanline.wrapping_add(y_scroll);
 
-        let tile_map_area = *lcd_control.get_background_tile_map_area().start();
         let palette = Palette::background(memory_bus);
 
-        let tile_map_row =
-            memory_bus.read_bytes::<32>(tile_map_area + 32 * (shifted_scanline as u16 / 8));
-        let tiles_in_line: HashMap<_, _> =
-            Ppu::get_bg_tiles_in_row(&tile_map_row, memory_bus, &palette);
+        let bg_tile_map_area = *lcd_control.get_background_tile_map_area().start();
+        let bg_tile_map_row =
+            memory_bus.read_bytes::<32>(bg_tile_map_area + 32 * (bg_shifted_scanline as u16 / 8));
+        let bg_tiles_in_line: HashMap<_, _> =
+            Ppu::get_bg_tiles_in_row(&bg_tile_map_row, memory_bus, &palette);
+
+        let window_tile_map_area = *lcd_control.get_window_tile_map_area().start();
+
+        let (window_tile_map_row, window_tiles_in_line) =
+            if lcd_control.window_enabled && self.scanline >= window_y {
+                let window_tile_map_row = memory_bus.read_bytes::<32>(
+                    window_tile_map_area + 32 * ((self.scanline - window_y) as u16 / 8),
+                );
+                let window_tiles_in_line: HashMap<_, _> =
+                    Ppu::get_bg_tiles_in_row(&window_tile_map_row, memory_bus, &palette);
+
+                (window_tile_map_row, window_tiles_in_line)
+            } else {
+                ([0; 32], HashMap::new())
+            };
 
         let sprites_in_row = self.get_sprite_tiles_in_row(memory_bus);
 
         for i in 0..160 {
-            let shifted_dot = (i as u8).wrapping_add(x_scroll);
-            let tile_id = tile_map_row[shifted_dot as usize / 8];
-            let tile = tiles_in_line.get(&tile_id).unwrap();
-            let bg_color = tile.get_color(shifted_dot as usize % 8, shifted_scanline as usize % 8);
+            let bg_shifted_dot = (i as u8).wrapping_add(x_scroll);
+            let bg_tile_id = bg_tile_map_row[bg_shifted_dot as usize / 8];
+            let bg_tile = bg_tiles_in_line.get(&bg_tile_id).unwrap();
+            let mut bg_color = bg_tile.get_color(
+                bg_shifted_dot as usize % 8,
+                bg_shifted_scanline as usize % 8,
+            );
+
+            if lcd_control.window_enabled && self.scanline >= window_y && (i as u8) + 7 >= window_x
+            {
+                let window_shifted_dot = (i as u8) + 7 - window_x;
+                let window_tile_id = window_tile_map_row[window_shifted_dot as usize / 8];
+                let window_tile = window_tiles_in_line.get(&window_tile_id).unwrap();
+                let window_color = window_tile.get_color(
+                    window_shifted_dot as usize % 8,
+                    (self.scanline - window_y) as usize % 8,
+                );
+
+                bg_color = window_color;
+            }
 
             let sprite_color = sprites_in_row
                 .iter()
