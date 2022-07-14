@@ -1002,24 +1002,20 @@ fn execute_decimal_adjust(cpu: &mut Cpu) -> ExecutionStep {
             cpu.registers.a = cpu.registers.a.wrapping_add(0x60);
             carry = true;
         }
-        if cpu.registers.f.half_carry || cpu.registers.a & 0x0f > 0x09 {
+        if cpu.registers.f.half_carry || (cpu.registers.a & 0x0f) > 0x09 {
             cpu.registers.a = cpu.registers.a.wrapping_add(0x06);
         }
-    } else if cpu.registers.f.carry {
-        carry = true;
-        cpu.registers.a = cpu.registers.a.wrapping_add(if cpu.registers.f.half_carry {
-            0x9a
-        } else {
-            0xa0
-        });
-    } else if cpu.registers.f.half_carry {
-        cpu.registers.a = cpu.registers.a.wrapping_add(0xfa);
+    } else {
+        if cpu.registers.f.carry {
+            cpu.registers.a = cpu.registers.a.wrapping_sub(0x60);
+        }
+        if cpu.registers.f.half_carry {
+            cpu.registers.a = cpu.registers.a.wrapping_sub(0x06);
+        }
     }
 
     cpu.registers.f.zero = cpu.registers.a == 0;
-    cpu.registers.f.subtract = false;
     cpu.registers.f.half_carry = false;
-    cpu.registers.f.carry = carry;
 
     ExecutionStep::new(cpu.registers.program_counter.wrapping_add(1), 1)
 }
