@@ -9,9 +9,15 @@ struct Mbc1State {
 }
 
 #[derive(Clone, Debug)]
+struct Mbc3State {
+    selected_rom_bank: u8,
+}
+
+#[derive(Clone, Debug)]
 enum Mbc {
     NoMbc,
     Mbc1(Mbc1State),
+    Mbc3(Mbc3State),
 }
 
 #[derive(Clone, Debug)]
@@ -70,6 +76,9 @@ impl Cartridge {
             0x01 => Mbc::Mbc1(Mbc1State {
                 selected_rom_bank: 1,
             }),
+            0x13 => Mbc::Mbc3(Mbc3State {
+                selected_rom_bank: 1,
+            }),
             _ => return Err(anyhow::anyhow!("Invalid cartridge MBC type")),
         };
         Ok(mbc_state)
@@ -87,6 +96,12 @@ impl Cartridge {
                     self.data[address as usize + ((state.selected_rom_bank as usize) - 1) * 0x4000]
                 }
             },
+            Mbc::Mbc3(state) => match address {
+                0x0000..=0x3fff => self.data[address as usize],
+                _ => {
+                    self.data[address as usize + ((state.selected_rom_bank as usize) - 1) * 0x4000]
+                }
+            },
         }
     }
 
@@ -95,6 +110,13 @@ impl Cartridge {
         match &mut self.mbc {
             Mbc::NoMbc => (),
             Mbc::Mbc1(state) => match address {
+                0x2000..=0x3fff => {
+                    let value = if value == 0 { 1 } else { value & 0x1f };
+                    state.selected_rom_bank = value;
+                }
+                _ => (),
+            },
+            Mbc::Mbc3(state) => match address {
                 0x2000..=0x3fff => {
                     let value = if value == 0 { 1 } else { value & 0x1f };
                     state.selected_rom_bank = value;
