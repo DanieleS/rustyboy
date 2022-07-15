@@ -19,7 +19,7 @@ mod utils;
 fn main() -> Result<()> {
     let rom_path: String = env::args().nth(1).expect("No ROM path provided");
     let cartridge = Cartridge::from_path(rom_path)?;
-    println!("Running {}", cartridge.title);
+    println!("Running {}", cartridge.header.title);
 
     let hardware = Hardware::new(cartridge);
 

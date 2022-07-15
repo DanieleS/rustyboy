@@ -2,9 +2,20 @@ use anyhow::Result;
 use std::{fs::File, io::Read};
 
 #[derive(Clone, Debug)]
-pub struct Cartridge {
+enum Mbc {
+    NoMbc,
+}
+
+#[derive(Clone, Debug)]
+pub struct CartridgeHeader {
     pub title: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct Cartridge {
+    pub header: CartridgeHeader,
     pub data: Vec<u8>,
+    mbc: Mbc,
 }
 
 impl Cartridge {
@@ -22,8 +33,13 @@ impl Cartridge {
         }
 
         let title = Cartridge::parse_title(&data)?;
+        let header = CartridgeHeader { title };
 
-        Ok(Cartridge { title, data })
+        Ok(Cartridge {
+            header,
+            data,
+            mbc: Mbc::NoMbc,
+        })
     }
 
     fn is_new_cartridge(data: &[u8]) -> bool {
@@ -40,5 +56,19 @@ impl Cartridge {
         let title = String::from_utf8(title_data.to_vec())
             .map_err(|_| anyhow::anyhow!("Invalid cartridge title"))?;
         Ok(title.trim_end_matches('\0').to_string())
+    }
+}
+
+impl Cartridge {
+    pub fn read(&self, address: u16) -> u8 {
+        match self.mbc {
+            Mbc::NoMbc => self.data[address as usize],
+        }
+    }
+
+    pub fn write(&mut self, address: u16, value: u8) {
+        match self.mbc {
+            Mbc::NoMbc => (),
+        }
     }
 }

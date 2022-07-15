@@ -106,21 +106,6 @@ impl Ppu {
         memory_bus.write(LCD_STAT_ADDRESS, self.create_stat_byte(memory_bus))
     }
 
-    pub fn dma_transfer(&mut self, memory_bus: &mut Memory) {
-        let mut address = memory_bus.read(0xff46) as u16;
-
-        if self.last_oam_transfer != address {
-            address <<= 8;
-
-            for i in 0..0xa0 {
-                let byte = memory_bus.read(address as u16 + i as u16);
-                memory_bus.write(0xfe00 + i as u16, byte);
-            }
-
-            self.last_oam_transfer = address;
-        }
-    }
-
     fn create_stat_byte(&self, memory_bus: &Memory) -> u8 {
         let ly = self.scanline;
         let lyc = memory_bus.read(LYC_ADDRESS);

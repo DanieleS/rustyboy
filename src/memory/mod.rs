@@ -1,9 +1,11 @@
-use crate::utils::zipper::Zipper;
+use crate::{cartridge::Cartridge, utils::zipper::Zipper};
 
-use self::io::IOMemoryBank;
+use self::io::{IOMemoryBank, DMA_ADDRESS};
 
 mod io;
 mod timer;
+
+const OAM_BASE_ADDRESS: u16 = 0xfe00;
 
 trait MemoryBank {
     fn read(&self, address: u16) -> u8;
@@ -38,10 +40,6 @@ impl<const C: usize> GeneralPourposeMemoryBank<C> {
             offset,
         }
     }
-
-    fn new_from_data(data: [u8; C], offset: usize) -> Self {
-        GeneralPourposeMemoryBank { data, offset }
-    }
 }
 
 impl<const C: usize> MemoryBank for GeneralPourposeMemoryBank<C> {
@@ -65,8 +63,7 @@ impl MemoryBank for u8 {
 }
 
 pub struct Memory {
-    cartridge_bank_0: GeneralPourposeMemoryBank<0x4000>,
-    cartridge_banks_1_n: Zipper<GeneralPourposeMemoryBank<0x4000>>,
+    cartridge: Cartridge,
     vram: GeneralPourposeMemoryBank<0x2000>,
     external_ram: Zipper<GeneralPourposeMemoryBank<0x2000>>,
     pub work_ram: GeneralPourposeMemoryBank<0x1000>,
@@ -75,14 +72,12 @@ pub struct Memory {
     pub io_registers: IOMemoryBank,
     hram: GeneralPourposeMemoryBank<0x7f>,
     interrupt_enable: u8,
-    rom_loaded: bool,
 }
 
 impl Memory {
-    pub fn new() -> Memory {
+    pub fn new(cartridge: Cartridge) -> Memory {
         Memory {
-            cartridge_bank_0: GeneralPourposeMemoryBank::new(0x0),
-            cartridge_banks_1_n: Zipper::new(vec![GeneralPourposeMemoryBank::new(0x4000)]).unwrap(),
+            cartridge,
             vram: GeneralPourposeMemoryBank::new(0x8000),
             external_ram: Zipper::new(vec![GeneralPourposeMemoryBank::new(0xa000)]).unwrap(),
             work_ram: GeneralPourposeMemoryBank::new(0xC000),
@@ -91,23 +86,13 @@ impl Memory {
             io_registers: IOMemoryBank::new(),
             hram: GeneralPourposeMemoryBank::new(0xFF80),
             interrupt_enable: 0,
-
-            rom_loaded: false,
         }
     }
 
-    pub fn load_rom(&mut self, rom: &[u8]) {
-        for (i, byte) in rom.iter().enumerate() {
-            self.write(i as u16, *byte);
-        }
-
-        self.rom_loaded = true;
-    }
-
+    #[inline(always)]
     pub fn read(&self, address: u16) -> u8 {
         match address {
-            0x0000..=0x3fff => self.cartridge_bank_0.read(address),
-            0x4000..=0x7fff => self.cartridge_banks_1_n.get().read(address),
+            0x0000..=0x7fff => self.cartridge.read(address),
             0x8000..=0x9fff => self.vram.read(address),
             0xa000..=0xbfff => self.external_ram.get().read(address),
             0xc000..=0xcfff => self.work_ram.read(address),
@@ -139,14 +124,10 @@ impl Memory {
         bytes
     }
 
+    #[inline(always)]
     pub fn write(&mut self, address: u16, value: u8) {
-        if self.rom_loaded && (0x0000..=0x7fff).contains(&address) {
-            return;
-        }
-
         match address {
-            0x0000..=0x3fff => self.cartridge_bank_0.write(address, value),
-            0x4000..=0x7fff => self.cartridge_banks_1_n.get_mut().write(address, value),
+            0x0000..=0x7fff => self.cartridge.write(address, value),
             0x8000..=0x9fff => self.vram.write(address, value),
             0xa000..=0xbfff => self.external_ram.get_mut().write(address, value),
             0xc000..=0xcfff => self.work_ram.write(address, value),
@@ -157,10 +138,25 @@ impl Memory {
             0xff80..=0xfffe => self.hram.write(address, value),
             0xffff => self.interrupt_enable.write(address, value),
         }
+
+        if self.io_registers.dma_transfer_requested {
+            self.io_registers.dma_transfer_requested = false;
+            dma_transfer(self);
+        }
     }
 
     pub fn write16(&mut self, address: u16, value: u16) {
         self.write(address, (value & 0xFF) as u8);
         self.write(address + 1, (value >> 8) as u8);
+    }
+}
+
+fn dma_transfer(memory_bus: &mut Memory) {
+    let mut address = memory_bus.read(DMA_ADDRESS) as u16;
+    address <<= 8;
+
+    let byte = memory_bus.read_bytes::<0xa0>(address);
+    for i in 0..0xa0 {
+        memory_bus.write(OAM_BASE_ADDRESS + i as u16, byte[i]);
     }
 }

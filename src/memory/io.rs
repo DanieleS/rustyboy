@@ -1,14 +1,16 @@
 use super::{
     timer::{Timer, DIV_ADDRESS},
-    GeneralPourposeMemoryBank, MemoryBank,
+    GeneralPourposeMemoryBank, Memory, MemoryBank,
 };
 
 const JOYP_ADDRESS: u16 = 0xff00;
+pub const DMA_ADDRESS: u16 = 0xff46;
 
 pub struct IOMemoryBank {
     joyp: u8,
     data: GeneralPourposeMemoryBank<0x7f>,
     timer: Timer,
+    pub dma_transfer_requested: bool,
 }
 
 impl IOMemoryBank {
@@ -17,6 +19,7 @@ impl IOMemoryBank {
             joyp: 0xff,
             data: GeneralPourposeMemoryBank::new(0xFF01),
             timer: Timer::new(),
+            dma_transfer_requested: false,
         }
     }
 }
@@ -40,6 +43,10 @@ impl MemoryBank for IOMemoryBank {
         match address {
             JOYP_ADDRESS => self.joyp = handle_joyp_write(self.joyp, value),
             DIV_ADDRESS => self.data.write(DIV_ADDRESS, 0x00),
+            DMA_ADDRESS => {
+                self.data.write(DMA_ADDRESS, value);
+                self.dma_transfer_requested = true;
+            }
             _ => self.data.write(address, value),
         }
     }
