@@ -3,13 +3,16 @@ pub mod renderer;
 pub mod tiles;
 
 use crate::cpu::interrupts::{Interrupt, Interrupts};
+use crate::lcd::LcdStat;
 use crate::memory::Memory;
 
 use self::palette::Color;
 
 const LCD_STAT_ADDRESS: u16 = 0xff41;
 const LY_ADDRESS: u16 = 0xff44;
+const LYC_ADDRESS: u16 = 0xff45;
 
+#[derive(Clone, Copy)]
 pub enum PpuMode {
     HBlank,
     VBlank,
@@ -43,6 +46,12 @@ impl Ppu {
     /// Returns `true` if the Frame buffer is ready to be read.
     /// Returns `false` if the PPU is still in the middle of a frame.
     pub fn step(&mut self, memory_bus: &mut Memory) -> bool {
+        let lcd_stat = LcdStat::from(memory_bus.read(LCD_STAT_ADDRESS));
+
+        if lcd_stat.lyc_eq_ly_interrupt_source && lcd_stat.lyc_eq_ly {
+            Interrupts::dispatch_interrupt(Interrupt::LcdStat, memory_bus);
+        }
+
         match self.mode {
             PpuMode::HBlank => {
                 if self.dots == 456 {
@@ -51,9 +60,15 @@ impl Ppu {
                     if self.scanline == 143 {
                         self.mode = PpuMode::VBlank;
                         Interrupts::dispatch_interrupt(Interrupt::VBlank, memory_bus);
+                        if lcd_stat.mode_1_interrupt_source {
+                            Interrupts::dispatch_interrupt(Interrupt::LcdStat, memory_bus);
+                        }
                         return true;
                     } else {
                         self.mode = PpuMode::OamSearch;
+                        if lcd_stat.mode_2_interrupt_source {
+                            Interrupts::dispatch_interrupt(Interrupt::LcdStat, memory_bus);
+                        }
                         return false;
                     }
                 } else {
@@ -69,6 +84,9 @@ impl Ppu {
                         self.frames += 1;
                         self.scanline = 0;
                         self.mode = PpuMode::OamSearch;
+                        if lcd_stat.mode_2_interrupt_source {
+                            Interrupts::dispatch_interrupt(Interrupt::LcdStat, memory_bus);
+                        }
                     }
                 } else {
                     self.dots += 1;
@@ -87,6 +105,9 @@ impl Ppu {
                 if self.dots == 240 {
                     self.render_line(memory_bus);
                     self.mode = PpuMode::HBlank;
+                    if lcd_stat.mode_0_interrupt_source {
+                        Interrupts::dispatch_interrupt(Interrupt::LcdStat, memory_bus);
+                    }
                 }
                 self.dots += 1;
                 return false;
@@ -100,15 +121,11 @@ impl Ppu {
     }
 
     fn create_stat_byte(&self, memory_bus: &Memory) -> u8 {
-        let lcd_stat = memory_bus.read(LCD_STAT_ADDRESS);
+        let mut lcd_stat = LcdStat::from(memory_bus.read(LCD_STAT_ADDRESS));
+        let lyc = memory_bus.read(LYC_ADDRESS);
+        lcd_stat.lyc_eq_ly = self.scanline == lyc;
+        lcd_stat.mode = self.mode;
 
-        let state: u8 = match self.mode {
-            PpuMode::HBlank => 0b00,
-            PpuMode::VBlank => 0b01,
-            PpuMode::OamSearch => 0b10,
-            PpuMode::PixelTransfer => 0b11,
-        };
-
-        lcd_stat | state
+        u8::from(lcd_stat)
     }
 }

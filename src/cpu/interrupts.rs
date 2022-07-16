@@ -6,7 +6,7 @@ pub const INTERRUPT_FLAG_ADDRESS: u16 = 0xff0f;
 #[derive(Debug, Clone, Copy)]
 pub enum Interrupt {
     VBlank = 0x01,
-    LCDStat = 0x02,
+    LcdStat = 0x02,
     Timer = 0x04,
     Serial = 0x08,
     Joypad = 0x10,
@@ -18,7 +18,7 @@ impl std::ops::BitAnd<u8> for Interrupt {
     fn bitand(self, rhs: u8) -> u8 {
         match self {
             Interrupt::VBlank => rhs & 0x01,
-            Interrupt::LCDStat => rhs & 0x02,
+            Interrupt::LcdStat => rhs & 0x02,
             Interrupt::Timer => rhs & 0x04,
             Interrupt::Serial => rhs & 0x08,
             Interrupt::Joypad => rhs & 0x10,
@@ -32,7 +32,7 @@ impl std::ops::BitAnd<Interrupt> for u8 {
     fn bitand(self, rhs: Interrupt) -> u8 {
         match rhs {
             Interrupt::VBlank => self & 0x01,
-            Interrupt::LCDStat => self & 0x02,
+            Interrupt::LcdStat => self & 0x02,
             Interrupt::Timer => self & 0x04,
             Interrupt::Serial => self & 0x08,
             Interrupt::Joypad => self & 0x10,
@@ -67,8 +67,8 @@ impl std::convert::From<(u8, u8)> for Interrupts {
                 flag: flag & Interrupt::VBlank == Interrupt::VBlank as u8,
             },
             lcd_stat: InterruptStatus {
-                enabled: enabled & Interrupt::LCDStat == Interrupt::LCDStat as u8,
-                flag: flag & Interrupt::LCDStat == Interrupt::LCDStat as u8,
+                enabled: enabled & Interrupt::LcdStat == Interrupt::LcdStat as u8,
+                flag: flag & Interrupt::LcdStat == Interrupt::LcdStat as u8,
             },
             timer: InterruptStatus {
                 enabled: enabled & Interrupt::Timer == Interrupt::Timer as u8,
@@ -117,7 +117,7 @@ impl Interrupts {
             Interrupt::VBlank => {
                 interrupts.vblank.flag = true;
             }
-            Interrupt::LCDStat => {
+            Interrupt::LcdStat => {
                 interrupts.lcd_stat.flag = true;
             }
             Interrupt::Timer => {
@@ -141,7 +141,7 @@ impl Interrupts {
             highest_priority = Some(Interrupt::VBlank);
         }
         if self.lcd_stat.is_active() {
-            highest_priority = Some(Interrupt::LCDStat);
+            highest_priority = Some(Interrupt::LcdStat);
         }
         if self.timer.is_active() {
             highest_priority = Some(Interrupt::Timer);
@@ -158,7 +158,7 @@ impl Interrupts {
     pub fn ack_interrupt(&mut self, interrupt: Interrupt, memory_bus: &mut Memory) {
         match interrupt {
             Interrupt::VBlank => self.vblank.flag = false,
-            Interrupt::LCDStat => self.lcd_stat.flag = false,
+            Interrupt::LcdStat => self.lcd_stat.flag = false,
             Interrupt::Timer => self.timer.flag = false,
             Interrupt::Serial => self.serial.flag = false,
             Interrupt::Joypad => self.joypad.flag = false,

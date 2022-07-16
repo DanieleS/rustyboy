@@ -1478,7 +1478,7 @@ fn execute_interrupts(
     let target = if let Some(i) = interrupt {
         Some(match i {
             Interrupt::VBlank => 0x40,
-            Interrupt::LCDStat => 0x48,
+            Interrupt::LcdStat => 0x48,
             Interrupt::Timer => 0x50,
             Interrupt::Serial => 0x58,
             Interrupt::Joypad => 0x60,

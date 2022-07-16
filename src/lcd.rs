@@ -1,5 +1,7 @@
 use std::ops::RangeInclusive;
 
+use crate::ppu::PpuMode;
+
 #[derive(Debug)]
 pub enum ObjectSize {
     Size8x8,
@@ -108,5 +110,61 @@ impl ObjectSize {
             ObjectSize::Size8x8 => 8,
             ObjectSize::Size8x16 => 16,
         }
+    }
+}
+
+pub struct LcdStat {
+    pub lyc_eq_ly_interrupt_source: bool,
+    pub mode_2_interrupt_source: bool,
+    pub mode_1_interrupt_source: bool,
+    pub mode_0_interrupt_source: bool,
+    pub lyc_eq_ly: bool,
+    pub mode: PpuMode,
+}
+
+impl std::convert::From<u8> for LcdStat {
+    fn from(byte: u8) -> Self {
+        LcdStat {
+            lyc_eq_ly_interrupt_source: byte & 0x40 == 0x40,
+            mode_2_interrupt_source: byte & 0x20 == 0x20,
+            mode_1_interrupt_source: byte & 0x10 == 0x10,
+            mode_0_interrupt_source: byte & 0x08 == 0x08,
+            lyc_eq_ly: byte & 0x04 == 0x04,
+            mode: match byte & 0x03 {
+                0x00 => PpuMode::HBlank,
+                0x01 => PpuMode::VBlank,
+                0x02 => PpuMode::OamSearch,
+                0x03 => PpuMode::PixelTransfer,
+                _ => panic!("Invalid LCD stat mode"),
+            },
+        }
+    }
+}
+
+impl std::convert::From<LcdStat> for u8 {
+    fn from(value: LcdStat) -> u8 {
+        let mut result = 0;
+        if value.lyc_eq_ly_interrupt_source {
+            result |= 0x40;
+        }
+        if value.mode_2_interrupt_source {
+            result |= 0x20;
+        }
+        if value.mode_1_interrupt_source {
+            result |= 0x10;
+        }
+        if value.mode_0_interrupt_source {
+            result |= 0x08;
+        }
+        if value.lyc_eq_ly {
+            result |= 0x04;
+        }
+        match value.mode {
+            PpuMode::HBlank => result |= 0x00,
+            PpuMode::VBlank => result |= 0x01,
+            PpuMode::OamSearch => result |= 0x02,
+            PpuMode::PixelTransfer => result |= 0x03,
+        }
+        result
     }
 }
