@@ -36,12 +36,8 @@ impl Hardware {
 
             let mut buffer: Option<[Color; 160 * 144]> = None;
             for _ in 0..(elapsed_cycles * 4) {
-                if let Some(interrupt) = self.ppu.step(&self.memory_bus) {
-                    Interrupts::dispatch_interrupt(interrupt, &mut self.memory_bus);
-
-                    if let Interrupt::VBlank = interrupt {
-                        buffer = Some(self.ppu.buffer);
-                    }
+                if self.ppu.step(&mut self.memory_bus) {
+                    buffer = Some(self.ppu.buffer);
                 }
             }
 
