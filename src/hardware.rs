@@ -46,7 +46,6 @@ impl Hardware {
                 .io_registers
                 .timer_step(elapsed_cycles as i8)
             {
-                println!("Timer overflow");
                 Interrupts::dispatch_interrupt(Interrupt::Timer, &mut self.memory_bus);
             }
 
