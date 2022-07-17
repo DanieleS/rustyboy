@@ -25,6 +25,12 @@ impl Timer {
         cycles: i8,
         io_memory_bank_data: &mut GeneralPourposeMemoryBank<0x7f>,
     ) -> bool {
+        self.div_cycle(cycles, io_memory_bank_data);
+
+        self.timer_cycle(cycles, io_memory_bank_data)
+    }
+
+    fn div_cycle(&mut self, cycles: i8, io_memory_bank_data: &mut GeneralPourposeMemoryBank<0x7f>) {
         self.div_cycles -= cycles;
         if self.div_cycles < 0 {
             io_memory_bank_data.write(
@@ -34,7 +40,13 @@ impl Timer {
 
             self.div_cycles += 64;
         }
+    }
 
+    fn timer_cycle(
+        &mut self,
+        cycles: i8,
+        io_memory_bank_data: &mut GeneralPourposeMemoryBank<0x7f>,
+    ) -> bool {
         let tac = io_memory_bank_data.read(TAC_ADDRESS);
         if tac & 0x04 == 0x04 {
             let cycles_mult = match tac & 0b11 {
@@ -51,8 +63,8 @@ impl Timer {
                 let tima = io_memory_bank_data.read(TIMA_ADDRESS);
                 let (new_tima, overflow) = tima.overflowing_add(1);
                 if overflow {
-                    let tac = io_memory_bank_data.read(TAC_ADDRESS);
-                    io_memory_bank_data.write(TIMA_ADDRESS, tac);
+                    let tma = io_memory_bank_data.read(TMA_ADDRESS);
+                    io_memory_bank_data.write(TIMA_ADDRESS, tma);
                     return true;
                 } else {
                     io_memory_bank_data.write(TIMA_ADDRESS, new_tima)
