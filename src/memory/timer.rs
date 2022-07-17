@@ -23,19 +23,19 @@ impl Timer {
     pub fn tick(
         &mut self,
         cycles: i8,
-        io_memory_bank: &mut GeneralPourposeMemoryBank<0x7f>,
+        io_memory_bank_data: &mut GeneralPourposeMemoryBank<0x7f>,
     ) -> bool {
         self.div_cycles -= cycles;
         if self.div_cycles < 0 {
-            io_memory_bank.write(
+            io_memory_bank_data.write(
                 DIV_ADDRESS,
-                io_memory_bank.read(DIV_ADDRESS).wrapping_add(1),
+                io_memory_bank_data.read(DIV_ADDRESS).wrapping_add(1),
             );
 
             self.div_cycles += 64;
         }
 
-        let tac = io_memory_bank.read(TAC_ADDRESS);
+        let tac = io_memory_bank_data.read(TAC_ADDRESS);
         if tac & 0x04 == 0x04 {
             let cycles_mult = match tac & 0b11 {
                 0b00 => 1,
@@ -48,14 +48,14 @@ impl Timer {
             if self.tma_cycles < 0 {
                 self.tma_cycles += 1024;
 
-                let tima = io_memory_bank.read(TIMA_ADDRESS);
+                let tima = io_memory_bank_data.read(TIMA_ADDRESS);
                 let (new_tima, overflow) = tima.overflowing_add(1);
                 if overflow {
-                    let tac = io_memory_bank.read(TAC_ADDRESS);
-                    io_memory_bank.write(TIMA_ADDRESS, tac);
+                    let tac = io_memory_bank_data.read(TAC_ADDRESS);
+                    io_memory_bank_data.write(TIMA_ADDRESS, tac);
                     return true;
                 } else {
-                    io_memory_bank.write(TIMA_ADDRESS, new_tima)
+                    io_memory_bank_data.write(TIMA_ADDRESS, new_tima)
                 }
             }
         }

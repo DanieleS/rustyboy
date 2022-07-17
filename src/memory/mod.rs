@@ -1,4 +1,4 @@
-use crate::{cartridge::Cartridge, utils::zipper::Zipper};
+use crate::cartridge::Cartridge;
 
 use self::io::{IOMemoryBank, DMA_ADDRESS};
 
@@ -65,9 +65,9 @@ impl MemoryBank for u8 {
 pub struct Memory {
     cartridge: Cartridge,
     vram: GeneralPourposeMemoryBank<0x2000>,
-    external_ram: Zipper<GeneralPourposeMemoryBank<0x2000>>,
+    external_ram: GeneralPourposeMemoryBank<0x2000>,
     pub work_ram: GeneralPourposeMemoryBank<0x1000>,
-    work_ram_1_n: Zipper<GeneralPourposeMemoryBank<0x1000>>,
+    work_ram_1_n: GeneralPourposeMemoryBank<0x1000>,
     oam: GeneralPourposeMemoryBank<0x100>,
     pub io_registers: IOMemoryBank,
     hram: GeneralPourposeMemoryBank<0x7f>,
@@ -79,9 +79,9 @@ impl Memory {
         Memory {
             cartridge,
             vram: GeneralPourposeMemoryBank::new(0x8000),
-            external_ram: Zipper::new(vec![GeneralPourposeMemoryBank::new(0xa000)]).unwrap(),
+            external_ram: GeneralPourposeMemoryBank::new(0xa000),
             work_ram: GeneralPourposeMemoryBank::new(0xC000),
-            work_ram_1_n: Zipper::new(vec![GeneralPourposeMemoryBank::new(0xd000)]).unwrap(),
+            work_ram_1_n: GeneralPourposeMemoryBank::new(0xd000),
             oam: GeneralPourposeMemoryBank::new(0xFE00),
             io_registers: IOMemoryBank::new(),
             hram: GeneralPourposeMemoryBank::new(0xFF80),
@@ -94,9 +94,9 @@ impl Memory {
         match address {
             0x0000..=0x7fff => self.cartridge.read(address),
             0x8000..=0x9fff => self.vram.read(address),
-            0xa000..=0xbfff => self.external_ram.get().read(address),
+            0xa000..=0xbfff => self.external_ram.read(address),
             0xc000..=0xcfff => self.work_ram.read(address),
-            0xd000..=0xdfff => self.work_ram_1_n.get().read(address),
+            0xd000..=0xdfff => self.work_ram_1_n.read(address),
             0xe000..=0xfdff => {
                 let new_addr = address - 0x2000;
                 self.read(new_addr)
@@ -129,9 +129,9 @@ impl Memory {
         match address {
             0x0000..=0x7fff => self.cartridge.write(address, value),
             0x8000..=0x9fff => self.vram.write(address, value),
-            0xa000..=0xbfff => self.external_ram.get_mut().write(address, value),
+            0xa000..=0xbfff => self.external_ram.write(address, value),
             0xc000..=0xcfff => self.work_ram.write(address, value),
-            0xd000..=0xdfff => self.work_ram_1_n.get_mut().write(address, value),
+            0xd000..=0xdfff => self.work_ram_1_n.write(address, value),
             0xe000..=0xfdff => self.work_ram.write(address, value),
             0xfe00..=0xfeff => self.oam.write(address, value),
             0xff00..=0xff7f => self.io_registers.write(address, value),
