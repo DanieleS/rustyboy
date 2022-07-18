@@ -63,9 +63,8 @@ impl MemoryBank for u8 {
 }
 
 pub struct Memory {
-    cartridge: Cartridge,
+    pub cartridge: Cartridge,
     vram: GeneralPourposeMemoryBank<0x2000>,
-    external_ram: GeneralPourposeMemoryBank<0x2000>,
     pub work_ram: GeneralPourposeMemoryBank<0x1000>,
     work_ram_1_n: GeneralPourposeMemoryBank<0x1000>,
     oam: GeneralPourposeMemoryBank<0x100>,
@@ -79,7 +78,6 @@ impl Memory {
         Memory {
             cartridge,
             vram: GeneralPourposeMemoryBank::new(0x8000),
-            external_ram: GeneralPourposeMemoryBank::new(0xa000),
             work_ram: GeneralPourposeMemoryBank::new(0xC000),
             work_ram_1_n: GeneralPourposeMemoryBank::new(0xd000),
             oam: GeneralPourposeMemoryBank::new(0xFE00),
@@ -94,7 +92,7 @@ impl Memory {
         match address {
             0x0000..=0x7fff => self.cartridge.read(address),
             0x8000..=0x9fff => self.vram.read(address),
-            0xa000..=0xbfff => self.external_ram.read(address),
+            0xa000..=0xbfff => self.cartridge.read(address),
             0xc000..=0xcfff => self.work_ram.read(address),
             0xd000..=0xdfff => self.work_ram_1_n.read(address),
             0xe000..=0xfdff => {
@@ -129,7 +127,7 @@ impl Memory {
         match address {
             0x0000..=0x7fff => self.cartridge.write(address, value),
             0x8000..=0x9fff => self.vram.write(address, value),
-            0xa000..=0xbfff => self.external_ram.write(address, value),
+            0xa000..=0xbfff => self.cartridge.write(address, value),
             0xc000..=0xcfff => self.work_ram.write(address, value),
             0xd000..=0xdfff => self.work_ram_1_n.write(address, value),
             0xe000..=0xfdff => self.work_ram.write(address, value),

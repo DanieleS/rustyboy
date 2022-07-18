@@ -75,7 +75,7 @@ fn handle_key_event(input: KeyboardInput, hardware: &mut Hardware) {
             state,
             ..
         } => {
-            let key = match key {
+            let joypad_key = match key {
                 VirtualKeyCode::A => Some(JoypadKey::A),
                 VirtualKeyCode::S => Some(JoypadKey::B),
                 VirtualKeyCode::Back => Some(JoypadKey::Select),
@@ -87,7 +87,7 @@ fn handle_key_event(input: KeyboardInput, hardware: &mut Hardware) {
                 _ => None,
             };
 
-            if let Some(key) = key {
+            if let Some(key) = joypad_key {
                 match state {
                     glutin::event::ElementState::Pressed => {
                         hardware.button_pressed(key);
@@ -96,6 +96,14 @@ fn handle_key_event(input: KeyboardInput, hardware: &mut Hardware) {
                         hardware.button_released(key);
                     }
                 }
+            }
+
+            if let VirtualKeyCode::Escape = key {
+                std::process::exit(0);
+            }
+
+            if let VirtualKeyCode::T = key {
+                hardware.enable_tracing();
             }
         }
         _ => (),

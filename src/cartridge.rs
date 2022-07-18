@@ -4,18 +4,25 @@ use std::{fs::File, io::Read};
 const MBC_TYPE_ADDRESS: usize = 0x147;
 
 #[derive(Clone, Debug)]
-struct Mbc1State {
+pub struct Mbc1State {
     selected_rom_bank: u8,
 }
 
 #[derive(Clone, Debug)]
-struct Mbc3State {
+pub struct Mbc3State {
     selected_rom_bank: u8,
+    selected_ram_bank: u8,
+    ram: [u8; 0x8000],
 }
 
 #[derive(Clone, Debug)]
-enum Mbc {
-    NoMbc,
+pub struct NoMbcState {
+    ram: [u8; 0x2000],
+}
+
+#[derive(Clone, Debug)]
+pub enum Mbc {
+    NoMbc(NoMbcState),
     Mbc1(Mbc1State),
     Mbc3(Mbc3State),
 }
@@ -29,7 +36,7 @@ pub struct CartridgeHeader {
 pub struct Cartridge {
     pub header: CartridgeHeader,
     pub data: Vec<u8>,
-    mbc: Mbc,
+    pub mbc: Mbc,
 }
 
 impl Cartridge {
@@ -72,12 +79,14 @@ impl Cartridge {
     fn parse_mbc(data: &[u8]) -> Result<Mbc> {
         let mbc_type = data[MBC_TYPE_ADDRESS];
         let mbc_state = match mbc_type {
-            0x00 => Mbc::NoMbc,
+            0x00 => Mbc::NoMbc(NoMbcState { ram: [0; 0x2000] }),
             0x01 => Mbc::Mbc1(Mbc1State {
                 selected_rom_bank: 1,
             }),
             0x13 => Mbc::Mbc3(Mbc3State {
                 selected_rom_bank: 1,
+                selected_ram_bank: 0,
+                ram: [0; 0x8000],
             }),
             _ => return Err(anyhow::anyhow!("Invalid cartridge MBC type")),
         };
@@ -89,7 +98,10 @@ impl Cartridge {
     #[inline(always)]
     pub fn read(&self, address: u16) -> u8 {
         match &self.mbc {
-            Mbc::NoMbc => self.data[address as usize],
+            Mbc::NoMbc(state) => match address {
+                0xa000..=0xbfff => state.ram[address as usize - 0xa000],
+                _ => self.data[address as usize],
+            },
             Mbc::Mbc1(state) => match address {
                 0x0000..=0x3fff => self.data[address as usize],
                 _ => {
@@ -98,6 +110,10 @@ impl Cartridge {
             },
             Mbc::Mbc3(state) => match address {
                 0x0000..=0x3fff => self.data[address as usize],
+                0xa000..=0xbfff => {
+                    state.ram
+                        [address as usize - 0xa000 + (state.selected_ram_bank as usize) * 0x2000]
+                }
                 _ => {
                     self.data[address as usize + ((state.selected_rom_bank as usize) - 1) * 0x4000]
                 }
@@ -108,7 +124,12 @@ impl Cartridge {
     #[inline(always)]
     pub fn write(&mut self, address: u16, value: u8) {
         match &mut self.mbc {
-            Mbc::NoMbc => (),
+            Mbc::NoMbc(state) => match address {
+                0xa000..=0xbfff => {
+                    state.ram[address as usize - 0xa000] = value;
+                }
+                _ => (),
+            },
             Mbc::Mbc1(state) => match address {
                 0x2000..=0x3fff => {
                     let value = if value == 0 { 1 } else { value & 0x1f };
@@ -117,12 +138,37 @@ impl Cartridge {
                 _ => (),
             },
             Mbc::Mbc3(state) => match address {
+                0 => {}
                 0x2000..=0x3fff => {
                     let value = if value == 0 { 1 } else { value & 0x1f };
                     state.selected_rom_bank = value;
                 }
-                _ => (),
+                0x4000..=0x5fff => {
+                    state.selected_ram_bank = value;
+                }
+                0xa000..=0xbfff => {
+                    state.ram
+                        [address as usize - 0xa000 - (state.selected_ram_bank as usize) * 0x2000] =
+                        value;
+                }
+                _ => {
+                    println!("MBC3 Unhandled! Writing {:X} - Value {:X}", address, value);
+                }
             },
+        }
+    }
+}
+
+impl std::fmt::Display for Mbc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Mbc::NoMbc(_) => write!(f, "No MBC"),
+            Mbc::Mbc1(state) => write!(f, "MBC1 - ROM Bank: {:02X}", state.selected_rom_bank),
+            Mbc::Mbc3(state) => write!(
+                f,
+                "MBC3 - ROM Bank: {:02X} - RAM Bank: {:02X}",
+                state.selected_rom_bank, state.selected_ram_bank
+            ),
         }
     }
 }

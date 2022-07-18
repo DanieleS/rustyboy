@@ -8,6 +8,7 @@ pub struct Hardware {
     ppu: Ppu,
     memory_bus: Memory,
     joypad: JoypadState,
+    tracing_enabled: bool,
 }
 
 impl Hardware {
@@ -22,11 +23,11 @@ impl Hardware {
             ppu,
             memory_bus,
             joypad,
+            tracing_enabled: false,
         }
     }
 
     pub fn run(&mut self) -> [Color; 160 * 144] {
-        let mut trace = false;
         let mut instructions = 10;
 
         loop {
@@ -51,8 +52,14 @@ impl Hardware {
 
             self.ppu.update_memory(&mut self.memory_bus);
 
+            if self.tracing_enabled {
+                println!(
+                    "CPU: {} - {}",
+                    self.cpu.registers, self.memory_bus.cartridge.mbc
+                );
+            }
+
             if let Some(buffer) = buffer {
-                // println!("{}", self.memory_bus.read());
                 return buffer;
             }
         }
@@ -64,6 +71,10 @@ impl Hardware {
 
     pub fn button_released(&mut self, button: JoypadKey) {
         self.joypad.set_key_released(button);
+    }
+
+    pub fn enable_tracing(&mut self) {
+        self.tracing_enabled = true;
     }
 }
 
