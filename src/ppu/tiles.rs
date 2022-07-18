@@ -7,9 +7,15 @@ pub struct Tile {
     pub data: [u8; 16],
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct BgTilePixel {
+    pub color: Color,
+    pub priority: bool,
+}
+
 #[derive(Debug)]
 pub struct TileWithColors {
-    pixels: [Color; 64],
+    pixels: [BgTilePixel; 64],
 }
 
 #[derive(Debug)]
@@ -38,7 +44,10 @@ impl Tile {
     }
 
     pub fn to_tile_with_colors(&self, palette: &Palette) -> TileWithColors {
-        let mut pixels = [Color::Black; 64];
+        let mut pixels = [BgTilePixel {
+            color: Color::Transparent,
+            priority: false,
+        }; 64];
         let palette = palette.clone();
 
         let even_bytes: Vec<_> = self
@@ -65,7 +74,10 @@ impl Tile {
 
             let color = palette.color_from_bits(first_bit, last_bit).clone();
 
-            pixels[i] = color;
+            pixels[i] = BgTilePixel {
+                color,
+                priority: first_bit || last_bit,
+            };
         }
 
         TileWithColors { pixels }
@@ -73,7 +85,7 @@ impl Tile {
 }
 
 impl TileWithColors {
-    pub fn get_color(&self, x: usize, y: usize) -> &Color {
+    pub fn get_color(&self, x: usize, y: usize) -> &BgTilePixel {
         &self.pixels[y * 8 + x]
     }
 }
@@ -82,7 +94,7 @@ impl std::fmt::Display for TileWithColors {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         for y in 0..8 {
             for x in 0..8 {
-                write!(f, "{}", self.pixels[y * 8 + x])?;
+                write!(f, "{}", self.pixels[y * 8 + x].color)?;
             }
             write!(f, "\n")?;
         }
@@ -130,7 +142,7 @@ impl Sprite {
         let x = if self.sprite_flags.x_flip { 7 - x } else { x };
         let y = if self.sprite_flags.y_flip { 7 - y } else { y };
 
-        self.tile.get_color(x, y)
+        &self.tile.get_color(x, y).color
     }
 }
 

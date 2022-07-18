@@ -75,23 +75,32 @@ impl Ppu {
                 .iter()
                 .filter(|&sprite| (sprite.x..sprite.x + 8).contains(&(i as u8 + 8)))
                 .map(|sprite| {
-                    sprite.get_color(
-                        (i - sprite.x as usize % 8) % 8,
-                        (self.scanline as usize - sprite.y as usize % 8) % 8,
+                    (
+                        sprite,
+                        sprite.get_color(
+                            (i - sprite.x as usize % 8) % 8,
+                            (self.scanline as usize - sprite.y as usize % 8) % 8,
+                        ),
                     )
                 })
-                .find(|&color| match color {
+                .find(|(_, &color)| match color {
                     Color::Transparent => false,
                     _ => true,
                 })
-                .and_then(|color| match color {
+                .and_then(|(sprite, color)| match color {
                     Color::Transparent => None,
-                    color => Some(color),
+                    color => Some((sprite, color)),
                 });
 
             self.buffer[i + self.scanline as usize * 160] = match sprite_color {
-                Some(color) => color,
-                None => bg_color,
+                Some((sprite, color)) => {
+                    if sprite.sprite_flags.bg_and_window_over && bg_color.priority {
+                        bg_color.color
+                    } else {
+                        *color
+                    }
+                }
+                None => bg_color.color,
             }
             .clone();
         }
@@ -135,6 +144,8 @@ impl Ppu {
                 row_sprites.push(sprite);
             }
         }
+
+        row_sprites.sort_by(|a, b| a.x.cmp(&b.x));
 
         row_sprites
     }

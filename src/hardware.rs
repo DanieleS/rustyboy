@@ -52,6 +52,7 @@ impl Hardware {
             self.ppu.update_memory(&mut self.memory_bus);
 
             if let Some(buffer) = buffer {
+                // println!("{}", self.memory_bus.read());
                 return buffer;
             }
         }
