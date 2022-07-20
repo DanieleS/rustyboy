@@ -2,22 +2,31 @@
 
 A Gameboy emulator written in Rust for didactical purposes.
 
-![Tetris](./images/tetris.png)
-![Tennis](./images/tennis.png)
+![Pokemon](./images/pokemon.jpg)
+![Tetris](./images/tetris.jpg)
+![Tennis](./images/tennis.jpg)
 
 ## Status
 
 This list shows what works and what still needs to be done
 
-- [x] Cpu (mostly, I still sometimes find bugs on some instructions)
-- [ ] PPU
-  - [x] Background (it works, but not the map shifting)
+- [x] Cpu
+- [x] PPU
+  - [x] Background
   - [x] Sprites (works but has to be tested more)
-  - [ ] Window
+  - [x] Window
 - [ ] Interrupts
   - [x] VBlank
-  - [ ] LCD Stat
+  - [x] LCD Stat
   - [ ] Joypad
   - [x] Timer
   - [ ] Serial
 - [ ] APU
+- [ ] MBC
+  - [x] No MBC
+  - [x] MBC1
+  - [ ] MBC2
+  - [x] MBC3 (partially supported)
+  - [ ] MBC5
+  - [ ] MBC6
+  - [ ] MBC7
