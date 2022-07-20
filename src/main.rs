@@ -1,8 +1,8 @@
-use crate::joypad::JoypadKey;
+use crate::{joypad::JoypadKey, utils::time::TimeFrame};
 use anyhow::Result;
 use cartridge::Cartridge;
 use glium::glutin::event::KeyboardInput;
-use std::env;
+use std::{env, time::Duration};
 
 use crate::hardware::Hardware;
 
@@ -41,6 +41,8 @@ fn create_window(mut hardware: Hardware) {
 
     let display = glium::Display::new(wb, cb, &event_loop).unwrap();
 
+    let mut time_frame = TimeFrame::new(Duration::from_secs(1) / 60);
+
     event_loop.run(move |ev, _, control_flow| {
         *control_flow = glutin::event_loop::ControlFlow::Poll;
 
@@ -48,18 +50,20 @@ fn create_window(mut hardware: Hardware) {
             glutin::event::Event::WindowEvent { event, .. } => match event {
                 glutin::event::WindowEvent::CloseRequested => {
                     *control_flow = glutin::event_loop::ControlFlow::Exit;
-                    return;
                 }
                 glutin::event::WindowEvent::KeyboardInput { input, .. } => {
                     handle_key_event(input, &mut hardware);
                 }
-                _ => return,
+                _ => (),
             },
             glutin::event::Event::NewEvents(_) => {
+                time_frame.update();
                 let buffer = hardware.run();
 
                 renderer::render(&display, buffer);
-                return;
+            }
+            glutin::event::Event::RedrawEventsCleared => {
+                time_frame.wait();
             }
             _ => (),
         }
