@@ -140,7 +140,7 @@ impl Cartridge {
             Mbc::Mbc3(state) => match address {
                 0 => {}
                 0x2000..=0x3fff => {
-                    let value = if value == 0 { 1 } else { value & 0x1f };
+                    let value = if value == 0 { 1 } else { value & 0x7f };
                     state.selected_rom_bank = value;
                 }
                 0x4000..=0x5fff => {
