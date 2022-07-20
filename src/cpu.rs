@@ -163,7 +163,6 @@ impl std::convert::From<u8> for FlagsRegister {
 pub struct Cpu {
     pub registers: Registers,
     pub ime: bool,
-    pub last_pc: Vec<u16>,
     pub halted: bool,
 }
 
@@ -172,7 +171,6 @@ impl Cpu {
         Cpu {
             registers: Registers::new(),
             ime: false,
-            last_pc: vec![0; 10000],
             halted: false,
         }
     }
@@ -207,8 +205,6 @@ impl Cpu {
             panic!("Unknown opcode: {:X}", opcode);
         };
 
-        self.last_pc.remove(0);
-        self.last_pc.push(program_counter);
         self.registers.program_counter = program_counter;
 
         (
@@ -347,14 +343,6 @@ impl Display for Cpu {
         writeln!(f, "Cpu {{")?;
         writeln!(f, "  registers: {},", self.registers)?;
         writeln!(f, "  ime: {}", self.ime)?;
-        writeln!(
-            f,
-            "  last_pc: {:?}",
-            self.last_pc
-                .iter()
-                .map(|n| format!("{:02X}", n))
-                .collect::<Vec<String>>()
-        )?;
         writeln!(f, "}}")
     }
 }
