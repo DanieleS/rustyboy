@@ -132,6 +132,7 @@ impl Memory {
             0xd000..=0xdfff => self.work_ram_1_n.write(address, value),
             0xe000..=0xfdff => self.work_ram.write(address, value),
             0xfe00..=0xfeff => self.oam.write(address, value),
+            0xff10..=0xff14 => println!("APU: {:04X} {:02X}", address, value),
             0xff00..=0xff7f => self.io_registers.write(address, value),
             0xff80..=0xfffe => self.hram.write(address, value),
             0xffff => self.interrupt_enable.write(address, value),

@@ -6,6 +6,7 @@ use std::{env, time::Duration};
 
 use crate::hardware::Hardware;
 
+mod apu;
 mod cartridge;
 mod cpu;
 mod hardware;
